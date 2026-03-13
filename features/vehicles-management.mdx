@@ -1,0 +1,425 @@
+---
+title: Vehicles Management
+description: Complete guide to managing vehicles in the Parts Catalog, including CRUD operations, search functionality, and vehicle listing.
+---
+
+## Overview
+
+The Vehicles Management feature allows users to maintain a catalog of vehicles that can be associated with automotive parts. This creates a many-to-many relationship where parts can be linked to multiple vehicles and vehicles can have multiple compatible parts.
+
+## Vehicle Entity Model
+
+The Vehicle entity represents an automotive vehicle in the system.
+
+```java Vehicle.java
+@Entity
+@Table(name = "vehicle")
+public class Vehicle {
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
+
+    @Column(name = "name")
+    private String name;
+
+    @ManyToMany(mappedBy = "vehicles")
+    @JsonIgnore
+    private Set<Part> parts = new HashSet<>();
+
+    public Vehicle() {}
+
+    public Vehicle(String name) {
+        this.name = name;
+    }
+
+    // Getters and setters...
+}
+```
+
+### Entity Attributes
+
+- **id**: Auto-generated unique identifier
+- **name**: Vehicle name or model (required)
+- **parts**: Set of related parts (many-to-many relationship, JSON ignored to prevent circular references)
+
+<Note>
+  The `@JsonIgnore` annotation on the parts collection prevents circular reference issues when serializing Vehicle objects to JSON.
+</Note>
+
+## CRUD Operations
+
+### Create a New Vehicle
+
+Add a new vehicle to the catalog.
+
+<Tabs>
+  <Tab title="Backend API">
+    ```java VehicleController.java:69
+    @PostMapping("/vehicles")
+    @ApiOperation(value = "Cadastra um veículo")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ResponseEntity<Vehicle> createVehicle(@RequestBody Vehicle vehicle) {
+        try {
+            Vehicle _vehicle = vehicleRepository.save(
+                new Vehicle(vehicle.getName())
+            );
+            return new ResponseEntity<>(_vehicle, HttpStatus.CREATED);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    ```
+
+    **Endpoint**: `POST /api/v1/vehicles`
+
+    **Request Body**:
+    ```json
+    {
+        "name": "Fusca"
+    }
+    ```
+
+    **Response** (201 Created):
+    ```json
+    {
+        "id": 1,
+        "name": "Fusca"
+    }
+    ```
+  </Tab>
+  <Tab title="Frontend">
+    The frontend provides a simple form for adding new vehicles:
+
+    - Vehicle name field (required)
+    - Submit button to create the vehicle
+    - Validation to ensure name is not empty
+    - Success message on creation
+  </Tab>
+</Tabs>
+
+### Retrieve Vehicles
+
+Retrieve vehicles from the catalog with optional name filtering.
+
+<Tabs>
+  <Tab title="Get All Vehicles">
+    ```java VehicleController.java:37
+    @GetMapping("/vehicles")
+    @ApiOperation(value = "Exibe todos os veículos em ordem alfabética")
+    @ResponseStatus(HttpStatus.OK)
+    public ResponseEntity<List<Vehicle>> getAllVehicles(
+        @RequestParam(required = false) String name
+    ) {
+        try {
+            List<Vehicle> vehicles = new ArrayList<>();
+            if (name == null) {
+                vehicleRepository.findByOrderByNameAsc()
+                    .forEach(vehicles::add);
+            } else {
+                vehicleRepository.findByNameContainingIgnoreCaseOrderByNameAsc(name)
+                    .forEach(vehicles::add);
+            }
+
+            if (vehicles.isEmpty()) {
+                return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+            }
+            return new ResponseEntity<>(vehicles, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    ```
+
+    **Endpoint**: `GET /api/v1/vehicles`
+
+    **Query Parameters**:
+    - `name` (optional): Filter vehicles by name (case-insensitive partial match)
+
+    **Example**:
+    - `GET /api/v1/vehicles` - Returns all vehicles
+    - `GET /api/v1/vehicles?name=fusca` - Returns vehicles containing "fusca"
+  </Tab>
+  <Tab title="Get Vehicle by ID">
+    ```java VehicleController.java:58
+    @GetMapping("/vehicles/{id}")
+    @ApiOperation(value = "Exibe um veículo específico")
+    @ResponseStatus(HttpStatus.OK)
+    public ResponseEntity<Vehicle> getVehicleById(@PathVariable("id") Long id) {
+        Optional<Vehicle> vehicleData = vehicleRepository.findById(id);
+        if (vehicleData.isPresent()) {
+            return new ResponseEntity<>(vehicleData.get(), HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+    ```
+
+    **Endpoint**: `GET /api/v1/vehicles/{id}`
+
+    **Path Parameters**:
+    - `id`: Vehicle ID
+
+    **Response**:
+    - 200 OK with vehicle data
+    - 404 Not Found if vehicle doesn't exist
+  </Tab>
+</Tabs>
+
+### Update a Vehicle
+
+Modify an existing vehicle's information.
+
+```java VehicleController.java:82
+@PutMapping("/vehicles/{id}")
+@ApiOperation(value = "Atualiza um veículo")
+@ResponseStatus(HttpStatus.OK)
+public ResponseEntity<Vehicle> updateVehicle(
+    @PathVariable("id") Long id,
+    @RequestBody Vehicle vehicle
+) {
+    Optional<Vehicle> vehicleData = vehicleRepository.findById(id);
+    if (vehicleData.isPresent()) {
+        Vehicle _vehicle = vehicleData.get();
+        _vehicle.setName(vehicle.getName());
+        return new ResponseEntity<>(vehicleRepository.save(_vehicle), HttpStatus.OK);
+    }
+    return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+}
+```
+
+**Endpoint**: `PUT /api/v1/vehicles/{id}`
+
+**Request Body**:
+```json
+{
+    "name": "Volkswagen Fusca 1969"
+}
+```
+
+**Response**:
+- 200 OK with updated vehicle data
+- 404 Not Found if vehicle doesn't exist
+
+### Delete Vehicles
+
+<Tabs>
+  <Tab title="Delete Single Vehicle">
+    ```java VehicleController.java:96
+    @DeleteMapping("/vehicles/{id}")
+    @ApiOperation(value = "Exclui um veículo")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public ResponseEntity<HttpStatus> deleteVehicle(@PathVariable("id") Long id) {
+        try {
+            vehicleRepository.deleteById(id);
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    ```
+
+    **Endpoint**: `DELETE /api/v1/vehicles/{id}`
+
+    **Response**:
+    - 204 No Content on successful deletion
+    - 500 Internal Server Error if deletion fails
+  </Tab>
+  <Tab title="Delete All Vehicles">
+    ```java VehicleController.java:108
+    @DeleteMapping("/vehicles")
+    @ApiOperation(value = "Exclui todos os veículos")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public ResponseEntity<HttpStatus> deleteAllVehicles() {
+        try {
+            vehicleRepository.deleteAll();
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    ```
+
+    **Endpoint**: `DELETE /api/v1/vehicles`
+
+    **Response**:
+    - 204 No Content on successful deletion of all vehicles
+    - 500 Internal Server Error if deletion fails
+
+    <Warning>
+      This operation will delete all vehicles from the catalog. Relationships with parts will also be removed.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## Search and Filter
+
+### Search by Name
+
+The vehicle listing supports case-insensitive partial name matching.
+
+**How it works**:
+
+1. User enters search text in the vehicle name filter
+2. System performs case-insensitive search
+3. Returns all vehicles containing the search term
+4. Results are sorted alphabetically by name
+
+**Example**:
+- Search for "fusca" returns: "Fusca", "Fusca 1969", "VW Fusca"
+- Search for "VW" returns: "VW Fusca", "VW Gol", "VW Kombi"
+
+### Alphabetical Sorting
+
+All vehicle listings are automatically sorted alphabetically by name in ascending order, making it easy to browse and locate specific vehicles.
+
+## User Interface Workflows
+
+### Main Vehicles List Screen
+
+The vehicles list provides a comprehensive view of all vehicles in the catalog:
+
+- **Display**: All vehicles shown in alphabetical order
+- **Search**: Filter box for finding vehicles by name
+- **Actions**:
+  - "Add Vehicle" button to create new vehicles
+  - "Delete All" button to remove all vehicles
+  - Click on any vehicle to view/edit details
+  - Individual delete button for each vehicle
+
+### Add New Vehicle Screen
+
+**Step-by-step workflow**:
+
+1. Click the "Add Vehicle" button
+2. Enter the vehicle name (required)
+3. Click "Submit"
+4. System validates the input
+5. Vehicle is created and added to the catalog
+6. Success message is displayed
+7. Redirected to vehicles list or vehicle details
+
+### Vehicle Details Screen
+
+**Available actions**:
+
+- View vehicle name and ID
+- Edit vehicle name
+- Update vehicle information
+- Delete the vehicle
+- View list of compatible parts (if relationships exist)
+
+## Integration with Parts
+
+Vehicles work in conjunction with parts through a many-to-many relationship:
+
+<CardGroup cols={2}>
+  <Card title="View Compatible Parts" icon="list">
+    From a vehicle's detail page, you can see all parts that are compatible with that vehicle.
+  </Card>
+  <Card title="Link to Parts" icon="link">
+    Parts can be associated with vehicles through the Part detail page. See [Part-Vehicle Relationships](/features/part-vehicle-relationships).
+  </Card>
+</CardGroup>
+
+## Repository Methods
+
+The VehicleRepository provides custom query methods for efficient data retrieval:
+
+```java
+public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
+    // Find all vehicles ordered by name ascending
+    List<Vehicle> findByOrderByNameAsc();
+
+    // Find vehicles by name containing keyword (case-insensitive)
+    List<Vehicle> findByNameContainingIgnoreCaseOrderByNameAsc(String name);
+}
+```
+
+These methods leverage Spring Data JPA's query derivation to automatically generate optimized SQL queries.
+
+## API Response Codes
+
+| Code | Description |
+|------|-------------|
+| 200 OK | Successful GET or PUT request |
+| 201 Created | Vehicle successfully created |
+| 204 No Content | Successful DELETE or no vehicles found |
+| 404 Not Found | Vehicle with specified ID not found |
+| 500 Internal Server Error | Server error during operation |
+
+## Validation Rules
+
+<AccordionGroup>
+  <Accordion title="Required Fields">
+    - **Name**: Must not be empty or null
+  </Accordion>
+
+  <Accordion title="Name Format">
+    - Can contain letters, numbers, and special characters
+    - Case-insensitive for searching
+    - Examples: "Fusca", "VW Gol 1.0", "Honda Civic 2020"
+  </Accordion>
+
+  <Accordion title="Deletion Constraints">
+    - Vehicles can be deleted even if linked to parts
+    - Deleting a vehicle removes its relationships with parts
+    - Parts remain in the catalog when their associated vehicles are deleted
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Card title="Consistent Naming" icon="tag">
+  Use consistent naming conventions for vehicles. Consider including:
+  - Brand/Manufacturer
+  - Model
+  - Year (if relevant)
+  
+  Example: "Volkswagen Fusca 1969" instead of just "Fusca"
+</Card>
+
+<Card title="Before Deletion" icon="triangle-exclamation">
+  Before deleting a vehicle, consider checking which parts are linked to it. While deletion is safe (relationships are automatically removed), you may want to reassign parts to other vehicles first.
+</Card>
+
+<Card title="Search Optimization" icon="magnifying-glass">
+  Take advantage of partial matching in searches. You can search for just part of a name to find multiple related vehicles quickly.
+</Card>
+
+## Use Cases
+
+### Scenario 1: Adding a New Vehicle Line
+
+When your catalog expands to include parts for a new vehicle:
+
+1. Create the vehicle entry
+2. Navigate to each compatible part
+3. Link the new vehicle to existing parts
+4. Or add new parts specific to this vehicle
+
+### Scenario 2: Managing Vehicle Variants
+
+For vehicles with multiple variants (different years, trims, etc.):
+
+1. Create separate vehicle entries for each variant
+2. Link shared parts to multiple vehicle variants
+3. Add variant-specific parts as needed
+
+### Scenario 3: Catalog Cleanup
+
+To maintain a clean, organized catalog:
+
+1. Use search to find duplicate or outdated vehicles
+2. Review parts relationships before deletion
+3. Merge or update vehicle entries as needed
+4. Delete obsolete vehicles
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Parts Management" icon="gear" href="/features/parts-management">
+    Learn how to manage automotive parts in the catalog
+  </Card>
+  <Card title="Part-Vehicle Relationships" icon="link" href="/features/part-vehicle-relationships">
+    Discover how to create and manage relationships between parts and vehicles
+  </Card>
+</CardGroup>

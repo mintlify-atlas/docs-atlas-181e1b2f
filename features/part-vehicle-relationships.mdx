@@ -1,0 +1,449 @@
+---
+title: Part-Vehicle Relationships
+description: Understanding and managing the many-to-many relationships between automotive parts and vehicles, including linking and unlinking operations.
+---
+
+## Overview
+
+The Part-Vehicle Relationship feature enables the creation of associations between parts and vehicles, establishing which parts are compatible with which vehicles. This many-to-many relationship allows:
+
+- One part to be compatible with multiple vehicles
+- One vehicle to use multiple different parts
+- Flexible catalog management for automotive applications
+
+## Relationship Architecture
+
+### Many-to-Many Association
+
+The relationship is implemented using JPA's `@ManyToMany` annotation with a join table.
+
+<Tabs>
+  <Tab title="Part Side">
+    ```java Part.java:36
+    @ManyToMany
+    @JoinTable(
+        name = "part_vehicle",
+        joinColumns = @JoinColumn(name = "part_id"),
+        inverseJoinColumns = @JoinColumn(name = "vehicle_id")
+    )
+    private Set<Vehicle> vehicles = new HashSet<>();
+
+    public void addVehicle(Vehicle vehicle) {
+        this.vehicles.add(vehicle);
+        vehicle.getParts().add(this);
+    }
+
+    public void removeVehicle(Vehicle vehicle) {
+        this.vehicles.remove(vehicle);
+        vehicle.getParts().remove(this);
+    }
+    ```
+
+    The Part entity owns the relationship and defines the join table structure:
+    - **Table name**: `part_vehicle`
+    - **Join column**: `part_id` (references part)
+    - **Inverse column**: `vehicle_id` (references vehicle)
+  </Tab>
+  <Tab title="Vehicle Side">
+    ```java Vehicle.java:27
+    @ManyToMany(mappedBy = "vehicles")
+    @JsonIgnore
+    private Set<Part> parts = new HashSet<>();
+    ```
+
+    The Vehicle entity has the inverse side of the relationship:
+    - Uses `mappedBy` to indicate Part owns the relationship
+    - `@JsonIgnore` prevents circular references in JSON serialization
+  </Tab>
+  <Tab title="Database Schema">
+    The join table structure:
+
+    ```sql
+    CREATE TABLE part_vehicle (
+        part_id BIGINT NOT NULL,
+        vehicle_id BIGINT NOT NULL,
+        PRIMARY KEY (part_id, vehicle_id),
+        FOREIGN KEY (part_id) REFERENCES part(id),
+        FOREIGN KEY (vehicle_id) REFERENCES vehicle(id)
+    );
+    ```
+  </Tab>
+</Tabs>
+
+### Bidirectional Synchronization
+
+The relationship maintains bidirectional synchronization through helper methods:
+
+<CodeGroup>
+```java addVehicle() - Part.java:94
+public void addVehicle(Vehicle vehicle) {
+    this.vehicles.add(vehicle);      // Add to part's vehicle set
+    vehicle.getParts().add(this);    // Add to vehicle's part set
+}
+```
+
+```java removeVehicle() - Part.java:99
+public void removeVehicle(Vehicle vehicle) {
+    this.vehicles.remove(vehicle);      // Remove from part's vehicle set
+    vehicle.getParts().remove(this);    // Remove from vehicle's part set
+}
+```
+</CodeGroup>
+
+<Note>
+  These helper methods ensure both sides of the relationship stay synchronized, preventing orphaned references and maintaining data integrity.
+</Note>
+
+## Relationship Operations
+
+### Get Vehicles for a Part
+
+Retrieve all vehicles associated with a specific part.
+
+```java PartController.java:143
+@GetMapping("/parts/{partId}/vehicles")
+@ApiOperation(value = "Lista os veículos relacionados a uma peça")
+@ResponseStatus(HttpStatus.OK)
+public ResponseEntity<Set<Vehicle>> getVehiclesByPart(
+    @PathVariable("partId") Long partId
+) {
+    Optional<Part> partData = partRepository.findById(partId);
+    if (!partData.isPresent()) {
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+    return new ResponseEntity<>(partData.get().getVehicles(), HttpStatus.OK);
+}
+```
+
+**Endpoint**: `GET /api/v1/parts/{partId}/vehicles`
+
+**Path Parameters**:
+- `partId`: ID of the part
+
+**Response Example** (200 OK):
+```json
+[
+    {
+        "id": 1,
+        "name": "Fusca"
+    },
+    {
+        "id": 2,
+        "name": "VW Gol"
+    }
+]
+```
+
+**Error Responses**:
+- 404 Not Found: Part with specified ID doesn't exist
+
+### Link Vehicle to Part
+
+Create an association between a vehicle and a part.
+
+```java PartController.java:154
+@PostMapping("/parts/{partId}/vehicles/{vehicleId}")
+@ApiOperation(value = "Relaciona um veículo a uma peça")
+@ResponseStatus(HttpStatus.OK)
+public ResponseEntity<Part> addVehicleToPart(
+    @PathVariable("partId") Long partId,
+    @PathVariable("vehicleId") Long vehicleId
+) {
+    Optional<Part> partData = partRepository.findById(partId);
+    Optional<Vehicle> vehicleData = vehicleRepository.findById(vehicleId);
+
+    if (!partData.isPresent() || !vehicleData.isPresent()) {
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    Part part = partData.get();
+    part.addVehicle(vehicleData.get());
+    return new ResponseEntity<>(partRepository.save(part), HttpStatus.OK);
+}
+```
+
+**Endpoint**: `POST /api/v1/parts/{partId}/vehicles/{vehicleId}`
+
+**Path Parameters**:
+- `partId`: ID of the part
+- `vehicleId`: ID of the vehicle to link
+
+**Response** (200 OK):
+Returns the updated Part object with the new vehicle relationship included.
+
+**Error Responses**:
+- 404 Not Found: Part or Vehicle with specified IDs don't exist
+
+<Info>
+  The `addVehicle()` method automatically maintains bidirectional consistency, so both the part and vehicle objects reflect the new relationship.
+</Info>
+
+### Unlink Vehicle from Part
+
+Remove the association between a vehicle and a part.
+
+```java PartController.java:171
+@DeleteMapping("/parts/{partId}/vehicles/{vehicleId}")
+@ApiOperation(value = "Remove o relacionamento entre veículo e peça")
+@ResponseStatus(HttpStatus.OK)
+public ResponseEntity<Part> removeVehicleFromPart(
+    @PathVariable("partId") Long partId,
+    @PathVariable("vehicleId") Long vehicleId
+) {
+    Optional<Part> partData = partRepository.findById(partId);
+    Optional<Vehicle> vehicleData = vehicleRepository.findById(vehicleId);
+
+    if (!partData.isPresent() || !vehicleData.isPresent()) {
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    Part part = partData.get();
+    part.removeVehicle(vehicleData.get());
+    return new ResponseEntity<>(partRepository.save(part), HttpStatus.OK);
+}
+```
+
+**Endpoint**: `DELETE /api/v1/parts/{partId}/vehicles/{vehicleId}`
+
+**Path Parameters**:
+- `partId`: ID of the part
+- `vehicleId`: ID of the vehicle to unlink
+
+**Response** (200 OK):
+Returns the updated Part object with the vehicle relationship removed.
+
+**Error Responses**:
+- 404 Not Found: Part or Vehicle with specified IDs don't exist
+
+<Warning>
+  Unlinking a vehicle from a part only removes the relationship. Neither the part nor the vehicle is deleted from the catalog.
+</Warning>
+
+## User Interface Workflows
+
+### Viewing Part-Vehicle Relationships
+
+**From Part Details Screen**:
+
+1. Navigate to a part's detail page
+2. View the "Related Vehicles" section
+3. See all vehicles currently linked to this part
+4. Each vehicle is displayed with its name
+
+**From Vehicle Search**:
+
+When searching for parts by vehicle:
+1. Enter vehicle name in the part search filter
+2. View all parts compatible with that vehicle
+3. Results show parts where the applicationVehicle field matches
+
+### Linking a Vehicle to a Part
+
+**Step-by-step workflow**:
+
+1. Open the part details page
+2. Locate the "Add Vehicle" section or button
+3. Select a vehicle from the available vehicles list
+4. Click "Link" or "Add Vehicle"
+5. System creates the relationship
+6. Vehicle appears in the part's related vehicles list
+7. Part automatically appears in the vehicle's compatible parts
+
+<Tip>
+  You can link multiple vehicles to a single part by repeating this process for each vehicle.
+</Tip>
+
+### Unlinking a Vehicle from a Part
+
+**Step-by-step workflow**:
+
+1. Open the part details page
+2. View the list of related vehicles
+3. Click "Remove" or "Unlink" next to the vehicle
+4. Confirm the action (if confirmation is required)
+5. System removes the relationship
+6. Vehicle is removed from the part's related vehicles list
+7. Part is removed from the vehicle's compatible parts list
+
+## Advanced Search Using Relationships
+
+### Search Parts by Vehicle
+
+The application provides a powerful search feature to find all parts compatible with a specific vehicle.
+
+```java PartController.java:58
+// In getAllParts() method
+partRepository.findByApplicationVehicleContainingIgnoreCaseOrderByNameAsc(vehicle)
+    .forEach(parts::add);
+```
+
+**How to use**:
+
+1. Go to the parts list page
+2. Use the "Search by Vehicle" filter
+3. Enter vehicle name or partial name
+4. System returns all parts where:
+   - The `applicationVehicle` field contains the search term
+5. Results are sorted alphabetically by part name
+
+**Example**:
+- Search for "Fusca" returns all parts with "Fusca" in their application vehicle field
+
+## Data Integrity and Constraints
+
+### Cascade Behavior
+
+<AccordionGroup>
+  <Accordion title="Deleting a Part">
+    When a part is deleted:
+    - All relationships in the `part_vehicle` join table are automatically removed
+    - Associated vehicles remain in the catalog
+    - No orphaned data is left in the database
+  </Accordion>
+
+  <Accordion title="Deleting a Vehicle">
+    When a vehicle is deleted:
+    - All relationships with parts are removed from the join table
+    - Parts remain in the catalog
+    - The `applicationVehicle` text field in parts is not affected
+  </Accordion>
+
+  <Accordion title="Duplicate Prevention">
+    The database schema prevents duplicate relationships:
+    - Primary key constraint on (part_id, vehicle_id)
+    - Attempting to link the same vehicle to a part twice has no effect
+    - Set-based collections (HashSet) naturally prevent duplicates
+  </Accordion>
+</AccordionGroup>
+
+### Referential Integrity
+
+Foreign key constraints ensure:
+- Can't link non-existent vehicles to parts
+- Can't link parts to non-existent vehicles
+- Orphaned relationships are prevented
+
+## API Summary
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/parts/{partId}/vehicles` | List all vehicles for a part |
+| POST | `/api/v1/parts/{partId}/vehicles/{vehicleId}` | Link vehicle to part |
+| DELETE | `/api/v1/parts/{partId}/vehicles/{vehicleId}` | Unlink vehicle from part |
+| GET | `/api/v1/parts?vehicle={keyword}` | Search parts by vehicle name |
+
+## Best Practices
+
+<Card title="Relationship Management" icon="sitemap">
+  **Do's**:
+  - Link vehicles to parts as soon as you know compatibility
+  - Use the applicationVehicle text field for additional context
+  - Regularly review and update relationships
+  
+  **Don'ts**:
+  - Don't create duplicate vehicle entries for the same model
+  - Don't rely solely on the applicationVehicle text field - use proper relationships
+  - Don't delete vehicles without checking part associations
+</Card>
+
+<Card title="Search Strategy" icon="magnifying-glass">
+  Use both search methods for comprehensive results:
+  1. Text-based search via applicationVehicle field
+  2. Relationship-based navigation via linked vehicles
+  
+  This dual approach ensures you find all relevant parts even if relationships aren't fully established.
+</Card>
+
+<Card title="Data Entry Workflow" icon="list-check">
+  Recommended workflow for new parts:
+  1. Create the part with basic information
+  2. Fill in the applicationVehicle text field with general info
+  3. Link specific vehicle models from the catalog
+  4. Review and verify all relationships
+</Card>
+
+## Use Cases
+
+### Scenario 1: Finding Compatible Parts
+
+**User Goal**: Find all parts compatible with a Volkswagen Fusca
+
+**Steps**:
+1. Go to parts list
+2. Enter "Fusca" in vehicle search
+3. View all matching parts
+4. Select a part to see detailed compatibility info
+5. View exact vehicle models linked to the part
+
+### Scenario 2: Managing Universal Parts
+
+**User Goal**: Track a part compatible with multiple vehicles
+
+**Example**: Oil filter that fits 10 different models
+
+**Steps**:
+1. Create the oil filter part
+2. Link all 10 compatible vehicles individually
+3. Users can now find this part by searching for any of the 10 vehicles
+
+### Scenario 3: Catalog Expansion
+
+**User Goal**: Add a new vehicle line to existing catalog
+
+**Steps**:
+1. Create the new vehicle entry
+2. Review existing parts catalog
+3. Identify compatible parts
+4. Link the new vehicle to each compatible part
+5. The new vehicle is now fully integrated
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Relationship Not Appearing">
+    **Problem**: Linked a vehicle but it doesn't show up
+    
+    **Solutions**:
+    - Refresh the page to reload data
+    - Verify both part and vehicle IDs exist
+    - Check browser console for API errors
+    - Ensure the POST request returned 200 OK
+  </Accordion>
+
+  <Accordion title="Can't Unlink Vehicle">
+    **Problem**: Delete operation fails
+    
+    **Solutions**:
+    - Verify the relationship exists in the database
+    - Check that both entities still exist
+    - Review server logs for constraint violations
+    - Ensure you have the correct part and vehicle IDs
+  </Accordion>
+
+  <Accordion title="Duplicate Relationships">
+    **Problem**: Same vehicle appears multiple times
+    
+    **Solutions**:
+    - This shouldn't happen due to database constraints
+    - Clear browser cache and reload
+    - Check for duplicate vehicle entries with different IDs
+    - Review the part's vehicle set in the database
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Parts Management" icon="gear" href="/features/parts-management">
+    Learn more about managing parts in the catalog
+  </Card>
+  <Card title="Vehicles Management" icon="car" href="/features/vehicles-management">
+    Explore vehicle management features
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    View complete API documentation
+  </Card>
+  <Card title="Database Schema" icon="database" href="/development">
+    Understand the database architecture
+  </Card>
+</CardGroup>

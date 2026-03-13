@@ -1,0 +1,400 @@
+---
+title: Relationships API
+description: API reference for managing many-to-many relationships between parts and vehicles
+---
+
+The Relationships API manages the many-to-many associations between parts and vehicles. A single part can be compatible with multiple vehicles, and a single vehicle can use multiple parts.
+
+## Overview
+
+The Parts Catalog uses a many-to-many relationship model:
+
+- **Parts** can be associated with multiple vehicles
+- **Vehicles** can be associated with multiple parts
+- Relationships are stored in a join table (`part_vehicle`)
+- Relationship operations are idempotent (creating an existing relationship has no effect)
+
+<Info>
+  All relationship endpoints are accessed through the `/api/v1/parts/{partId}/vehicles/{vehicleId}` path pattern.
+</Info>
+
+---
+
+## Get Vehicles for a Part
+
+<api method="GET" endpoint="/api/v1/parts/{partId}/vehicles" />
+
+Retrieves all vehicles that are associated with a specific part.
+
+### Path Parameters
+
+<ParamField path="partId" type="long" required>
+  The unique identifier of the part
+</ParamField>
+
+### Response
+
+Returns an array of vehicle objects.
+
+<ResponseField name="id" type="long">
+  Unique identifier of the vehicle
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Name of the vehicle
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X GET http://localhost:8080/api/v1/parts/1/vehicles
+```
+
+### Example Response
+
+```json 200 OK
+[
+  {
+    "id": 1,
+    "name": "Fusca 1300"
+  },
+  {
+    "id": 2,
+    "name": "Fusca 1600"
+  },
+  {
+    "id": 3,
+    "name": "Kombi 1.6"
+  }
+]
+```
+
+```json 404 Not Found
+```
+
+<Note>
+  Returns an empty array `[]` if the part exists but has no associated vehicles. Returns `404` if the part ID doesn't exist.
+</Note>
+
+---
+
+## Add Vehicle to Part
+
+<api method="POST" endpoint="/api/v1/parts/{partId}/vehicles/{vehicleId}" />
+
+Creates a relationship between a part and a vehicle, indicating that the part is compatible with or used in that vehicle.
+
+### Path Parameters
+
+<ParamField path="partId" type="long" required>
+  The unique identifier of the part
+</ParamField>
+
+<ParamField path="vehicleId" type="long" required>
+  The unique identifier of the vehicle to associate with the part
+</ParamField>
+
+### Response
+
+Returns the updated part object with the new vehicle included in the `vehicles` array.
+
+<ResponseField name="id" type="long">
+  Unique identifier of the part
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Name of the part
+</ResponseField>
+
+<ResponseField name="applicationVehicle" type="string">
+  Description of which vehicles this part applies to
+</ResponseField>
+
+<ResponseField name="netWeight" type="double">
+  Net weight of the part
+</ResponseField>
+
+<ResponseField name="grossWeight" type="double">
+  Gross weight of the part
+</ResponseField>
+
+<ResponseField name="vehicles" type="array">
+  Array of vehicle objects associated with this part (includes the newly added vehicle)
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/v1/parts/1/vehicles/2
+```
+
+### Example Response
+
+```json 200 OK
+{
+  "id": 1,
+  "name": "Polia",
+  "applicationVehicle": "Fusca",
+  "netWeight": 9.87,
+  "grossWeight": 10.98,
+  "vehicles": [
+    {
+      "id": 1,
+      "name": "Fusca 1300"
+    },
+    {
+      "id": 2,
+      "name": "Fusca 1600"
+    }
+  ]
+}
+```
+
+```json 404 Not Found
+```
+
+<Note>
+  If the relationship already exists, this operation is idempotent and will not create a duplicate. The part is returned with its current vehicle associations.
+</Note>
+
+<Warning>
+  Both the part ID and vehicle ID must exist. If either is not found, the endpoint returns `404 Not Found`.
+</Warning>
+
+---
+
+## Remove Vehicle from Part
+
+<api method="DELETE" endpoint="/api/v1/parts/{partId}/vehicles/{vehicleId}" />
+
+Removes the relationship between a part and a vehicle. The part and vehicle themselves are not deleted, only their association.
+
+### Path Parameters
+
+<ParamField path="partId" type="long" required>
+  The unique identifier of the part
+</ParamField>
+
+<ParamField path="vehicleId" type="long" required>
+  The unique identifier of the vehicle to disassociate from the part
+</ParamField>
+
+### Response
+
+Returns the updated part object with the vehicle removed from the `vehicles` array.
+
+<ResponseField name="id" type="long">
+  Unique identifier of the part
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Name of the part
+</ResponseField>
+
+<ResponseField name="applicationVehicle" type="string">
+  Description of which vehicles this part applies to
+</ResponseField>
+
+<ResponseField name="netWeight" type="double">
+  Net weight of the part
+</ResponseField>
+
+<ResponseField name="grossWeight" type="double">
+  Gross weight of the part
+</ResponseField>
+
+<ResponseField name="vehicles" type="array">
+  Array of vehicle objects still associated with this part (excludes the removed vehicle)
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X DELETE http://localhost:8080/api/v1/parts/1/vehicles/2
+```
+
+### Example Response
+
+```json 200 OK
+{
+  "id": 1,
+  "name": "Polia",
+  "applicationVehicle": "Fusca",
+  "netWeight": 9.87,
+  "grossWeight": 10.98,
+  "vehicles": [
+    {
+      "id": 1,
+      "name": "Fusca 1300"
+    }
+  ]
+}
+```
+
+```json 404 Not Found
+```
+
+<Note>
+  If the relationship doesn't exist, this operation is idempotent and will not cause an error. The part is returned with its current vehicle associations.
+</Note>
+
+<Warning>
+  Both the part ID and vehicle ID must exist. If either is not found, the endpoint returns `404 Not Found`.
+</Warning>
+
+---
+
+## Relationship Management Workflow
+
+Here's a typical workflow for managing part-vehicle relationships:
+
+### 1. Create the Resources
+
+First, create the part and vehicle(s):
+
+```bash Create a part
+curl -X POST http://localhost:8080/api/v1/parts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Vela de Ignição NGK",
+    "applicationVehicle": "Universal",
+    "netWeight": 0.05,
+    "grossWeight": 0.08
+  }'
+```
+
+```bash Create vehicles
+curl -X POST http://localhost:8080/api/v1/vehicles \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Fusca 1300"}'
+
+curl -X POST http://localhost:8080/api/v1/vehicles \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Kombi 1.6"}'
+```
+
+### 2. Create Relationships
+
+Associate the part with multiple vehicles:
+
+```bash
+# Associate with Fusca 1300 (vehicle ID: 1)
+curl -X POST http://localhost:8080/api/v1/parts/1/vehicles/1
+
+# Associate with Kombi 1.6 (vehicle ID: 2)
+curl -X POST http://localhost:8080/api/v1/parts/1/vehicles/2
+```
+
+### 3. Query Relationships
+
+Retrieve all vehicles for the part:
+
+```bash
+curl -X GET http://localhost:8080/api/v1/parts/1/vehicles
+```
+
+Or get the part with embedded vehicle data:
+
+```bash
+curl -X GET http://localhost:8080/api/v1/parts/1
+```
+
+### 4. Remove Relationships
+
+Remove a vehicle association when no longer applicable:
+
+```bash
+curl -X DELETE http://localhost:8080/api/v1/parts/1/vehicles/2
+```
+
+---
+
+## Implementation Details
+
+### Database Schema
+
+Relationships are stored in a join table with the following structure:
+
+```sql
+CREATE TABLE part_vehicle (
+  part_id BIGINT REFERENCES part(id),
+  vehicle_id BIGINT REFERENCES vehicle(id),
+  PRIMARY KEY (part_id, vehicle_id)
+);
+```
+
+### Bidirectional Relationship
+
+The relationship is managed bidirectionally in the Java models:
+
+- Adding a vehicle to a part also adds the part to the vehicle's internal parts collection
+- Removing a vehicle from a part also removes the part from the vehicle's internal parts collection
+
+<Info>
+  While the relationship is bidirectional in the database and Java models, the API only exposes vehicle information when querying parts (not parts when querying vehicles) to prevent circular JSON serialization issues.
+</Info>
+
+### Cascade Behavior
+
+When deleting entities:
+
+- Deleting a **part** removes all its vehicle relationships
+- Deleting a **vehicle** removes all its part relationships
+- The relationship data in the join table is automatically cleaned up
+
+---
+
+## Best Practices
+
+### 1. Validate Resources Before Creating Relationships
+
+Always verify that both the part and vehicle exist before attempting to create a relationship:
+
+```bash
+# Verify part exists
+curl -X GET http://localhost:8080/api/v1/parts/1
+
+# Verify vehicle exists
+curl -X GET http://localhost:8080/api/v1/vehicles/2
+
+# Then create relationship
+curl -X POST http://localhost:8080/api/v1/parts/1/vehicles/2
+```
+
+### 2. Use Bulk Operations Efficiently
+
+When associating a part with multiple vehicles, make individual API calls for each relationship:
+
+```bash
+for vehicle_id in 1 2 3 4 5; do
+  curl -X POST http://localhost:8080/api/v1/parts/1/vehicles/$vehicle_id
+done
+```
+
+### 3. Query Relationships Before Deletion
+
+Before deleting a part or vehicle, check its relationships to understand the impact:
+
+```bash
+# Check which vehicles will be affected
+curl -X GET http://localhost:8080/api/v1/parts/1/vehicles
+
+# Then delete if appropriate
+curl -X DELETE http://localhost:8080/api/v1/parts/1
+```
+
+### 4. Keep applicationVehicle Field Updated
+
+While the `applicationVehicle` text field on parts is separate from the relationship data, it's good practice to keep them aligned:
+
+```bash
+# Update the applicationVehicle field to reflect relationships
+curl -X PUT http://localhost:8080/api/v1/parts/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Vela de Ignição",
+    "applicationVehicle": "Fusca 1300, Fusca 1600, Kombi 1.6",
+    "netWeight": 0.05,
+    "grossWeight": 0.08
+  }'
+```

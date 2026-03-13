@@ -1,0 +1,314 @@
+---
+title: Vehicles API
+description: Complete API reference for managing vehicles including CRUD operations and filtering
+---
+
+The Vehicles API provides endpoints to create, read, update, and delete vehicle records. Vehicles can be associated with multiple parts through the relationships API.
+
+## Get All Vehicles
+
+<api method="GET" endpoint="/api/v1/vehicles" />
+
+Retrieves all vehicles in alphabetical order by name. Supports optional filtering by vehicle name.
+
+### Query Parameters
+
+<ParamField query="name" type="string" optional>
+  Filter vehicles by name (case-insensitive, partial match). Returns all vehicles whose name contains this keyword.
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="long">
+  Unique identifier for the vehicle (auto-generated)
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Name of the vehicle
+</ResponseField>
+
+<Note>
+  The Vehicle object does not include a `parts` array in the response to prevent circular references. Use the [Get Vehicles by Part](/api/parts#get-vehicles-by-part) endpoint to retrieve part-vehicle relationships.
+</Note>
+
+### Example Request
+
+<CodeGroup>
+```bash Get all vehicles
+curl -X GET http://localhost:8080/api/v1/vehicles
+```
+
+```bash Filter by name
+curl -X GET "http://localhost:8080/api/v1/vehicles?name=fusca"
+```
+</CodeGroup>
+
+### Example Response
+
+```json 200 OK
+[
+  {
+    "id": 1,
+    "name": "Fusca 1300"
+  },
+  {
+    "id": 2,
+    "name": "Fusca 1600"
+  },
+  {
+    "id": 3,
+    "name": "Kombi 1.6"
+  }
+]
+```
+
+```json 204 No Content
+```
+
+<ResponseExample>
+```json 500 Internal Server Error
+```
+</ResponseExample>
+
+---
+
+## Get Vehicle by ID
+
+<api method="GET" endpoint="/api/v1/vehicles/{id}" />
+
+Retrieves a specific vehicle by its unique identifier.
+
+### Path Parameters
+
+<ParamField path="id" type="long" required>
+  The unique identifier of the vehicle to retrieve
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="long">
+  Unique identifier for the vehicle
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Name of the vehicle
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X GET http://localhost:8080/api/v1/vehicles/1
+```
+
+### Example Response
+
+```json 200 OK
+{
+  "id": 1,
+  "name": "Fusca 1300"
+}
+```
+
+```json 404 Not Found
+```
+
+---
+
+## Create Vehicle
+
+<api method="POST" endpoint="/api/v1/vehicles" />
+
+Creates a new vehicle in the system.
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Name of the vehicle. This should uniquely identify the vehicle model or type.
+</ParamField>
+
+<Note>
+  The `id` field is auto-generated and should not be included in the request body.
+</Note>
+
+### Response
+
+<ResponseField name="id" type="long">
+  Auto-generated unique identifier for the newly created vehicle
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Name of the vehicle
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/v1/vehicles \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Fusca 1300"
+  }'
+```
+
+### Example Response
+
+```json 201 Created
+{
+  "id": 1,
+  "name": "Fusca 1300"
+}
+```
+
+```json 500 Internal Server Error
+```
+
+---
+
+## Update Vehicle
+
+<api method="PUT" endpoint="/api/v1/vehicles/{id}" />
+
+Updates an existing vehicle's information.
+
+### Path Parameters
+
+<ParamField path="id" type="long" required>
+  The unique identifier of the vehicle to update
+</ParamField>
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Updated name of the vehicle
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="long">
+  Unique identifier of the updated vehicle
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Updated name of the vehicle
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X PUT http://localhost:8080/api/v1/vehicles/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Fusca 1300 Classic"
+  }'
+```
+
+### Example Response
+
+```json 200 OK
+{
+  "id": 1,
+  "name": "Fusca 1300 Classic"
+}
+```
+
+```json 404 Not Found
+```
+
+<Note>
+  Updating a vehicle's name does not affect its relationships with parts. All existing part associations remain intact.
+</Note>
+
+---
+
+## Delete Vehicle
+
+<api method="DELETE" endpoint="/api/v1/vehicles/{id}" />
+
+Deletes a specific vehicle from the system.
+
+### Path Parameters
+
+<ParamField path="id" type="long" required>
+  The unique identifier of the vehicle to delete
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X DELETE http://localhost:8080/api/v1/vehicles/1
+```
+
+### Example Response
+
+```text 204 No Content
+```
+
+```text 500 Internal Server Error
+```
+
+<Warning>
+  Deleting a vehicle will also remove all relationships between that vehicle and any associated parts.
+</Warning>
+
+---
+
+## Delete All Vehicles
+
+<api method="DELETE" endpoint="/api/v1/vehicles" />
+
+Deletes all vehicles from the system.
+
+### Example Request
+
+```bash
+curl -X DELETE http://localhost:8080/api/v1/vehicles
+```
+
+### Example Response
+
+```text 204 No Content
+```
+
+```text 500 Internal Server Error
+```
+
+<Warning>
+  This operation is destructive and cannot be undone. All vehicles and their part relationships will be permanently deleted.
+</Warning>
+
+---
+
+## Working with Vehicle-Part Relationships
+
+Vehicles can be associated with parts through the [Relationships API](/api/relationships). This creates a many-to-many relationship where:
+
+- A single vehicle can be compatible with multiple parts
+- A single part can be used in multiple vehicles
+
+### Example Workflow
+
+1. Create a vehicle:
+```bash
+curl -X POST http://localhost:8080/api/v1/vehicles \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Fusca 1300"}'
+```
+
+2. Create a part:
+```bash
+curl -X POST http://localhost:8080/api/v1/parts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Polia",
+    "applicationVehicle": "Fusca",
+    "netWeight": 9.87,
+    "grossWeight": 10.98
+  }'
+```
+
+3. Link them together:
+```bash
+curl -X POST http://localhost:8080/api/v1/parts/1/vehicles/1
+```
+
+See the [Relationships API](/api/relationships) documentation for complete details on managing part-vehicle associations.

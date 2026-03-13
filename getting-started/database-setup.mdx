@@ -1,0 +1,272 @@
+---
+title: Database Setup
+description: Configure PostgreSQL database for the Parts Catalog application
+---
+
+The Parts Catalog application uses PostgreSQL as its primary database. This guide will walk you through creating and configuring the database.
+
+## Database Requirements
+
+<Note>
+The application requires PostgreSQL 12 or higher. Make sure PostgreSQL is installed and running before proceeding.
+</Note>
+
+## Create the Database
+
+### Using pgAdmin (Recommended)
+
+<Steps>
+  <Step title="Access pgAdmin">
+    Open pgAdmin in your browser:
+    
+    ```
+    http://127.0.0.1/pgadmin4/browser/
+    ```
+    
+    Or launch the pgAdmin desktop application.
+  </Step>
+  
+  <Step title="Connect to PostgreSQL Server">
+    1. In the left sidebar, expand **Servers**
+    2. Click on **Local** (or your server name)
+    3. Enter your PostgreSQL password if prompted
+  </Step>
+  
+  <Step title="Create Database">
+    1. Right-click on **Databases**
+    2. Select **Create > Database**
+    3. In the dialog:
+       - **Database name**: `partsCatalog`
+       - **Owner**: `postgres`
+    4. Click **Save**
+    
+    <Tip>The database name is case-sensitive and must match exactly: `partsCatalog`</Tip>
+  </Step>
+  
+  <Step title="Verify Database Creation">
+    The `partsCatalog` database should now appear in the Databases list in pgAdmin.
+  </Step>
+</Steps>
+
+### Using Command Line (psql)
+
+Alternatively, you can create the database using the PostgreSQL command-line tool:
+
+<Steps>
+  <Step title="Connect to PostgreSQL">
+    <CodeGroup>
+    ```bash Linux/macOS
+    psql -U postgres
+    ```
+    
+    ```bash Windows
+    psql -U postgres
+    ```
+    </CodeGroup>
+    
+    Enter the postgres user password when prompted.
+  </Step>
+  
+  <Step title="Create Database">
+    Execute the following SQL command:
+    
+    ```sql
+    CREATE DATABASE "partsCatalog" OWNER postgres;
+    ```
+  </Step>
+  
+  <Step title="Verify Creation">
+    List all databases to confirm:
+    
+    ```sql
+    \l
+    ```
+    
+    You should see `partsCatalog` in the list.
+  </Step>
+  
+  <Step title="Exit psql">
+    ```sql
+    \q
+    ```
+  </Step>
+</Steps>
+
+## Database Configuration
+
+### Default Credentials
+
+The application uses the following default database credentials:
+
+<CodeGroup>
+```properties application.properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/partsCatalog
+spring.datasource.username=postgres
+spring.datasource.password=postgres
+```
+</CodeGroup>
+
+<Warning>
+If your PostgreSQL setup uses different credentials, you'll need to update the `application.properties` file. See the [Configuration](/getting-started/configuration) guide for details.
+</Warning>
+
+### Custom PostgreSQL Credentials
+
+If you've set up PostgreSQL with custom credentials:
+
+<Steps>
+  <Step title="Note Your Credentials">
+    Record your PostgreSQL configuration:
+    - **Host**: Usually `localhost`
+    - **Port**: Usually `5432`
+    - **Database**: `partsCatalog`
+    - **Username**: Your PostgreSQL username
+    - **Password**: Your PostgreSQL password
+  </Step>
+  
+  <Step title="Update Configuration">
+    You'll need to update these values in `backend/src/main/resources/application.properties`.
+    
+    See the [Configuration](/getting-started/configuration) page for detailed instructions.
+  </Step>
+</Steps>
+
+## Database Schema
+
+### Automatic Schema Generation
+
+The application uses Hibernate with the `ddl-auto=update` setting, which means:
+
+- Tables are automatically created when the application starts
+- Schema changes are applied automatically
+- Existing data is preserved during updates
+
+<Note>
+You don't need to manually create tables. Spring Data JPA will handle this automatically based on your entity classes.
+</Note>
+
+### Main Tables
+
+The application will create the following tables:
+
+| Table Name | Description |
+|------------|-------------|
+| `parts` | Stores automotive parts information |
+| `vehicles` | Stores vehicle information |
+| `parts_vehicles` | Junction table for many-to-many relationship |
+
+### Parts Table Schema
+
+The `parts` table includes:
+- `id` (Primary Key)
+- `name` (Part name)
+- `application_vehicle` (Vehicle application)
+- `net_weight` (Net weight in kg)
+- `gross_weight` (Gross weight in kg)
+
+### Vehicles Table Schema
+
+The `vehicles` table includes:
+- `id` (Primary Key)
+- Vehicle details (as defined in the entity model)
+
+## Test Database
+
+<Tip>
+The application uses an H2 in-memory database for unit tests, so you don't need to create a separate test database.
+</Tip>
+
+The test configuration automatically uses H2 database with the following benefits:
+- Fast test execution
+- No impact on production data
+- No additional setup required
+
+## Verify Database Connection
+
+Before running the application, verify your database is ready:
+
+<Steps>
+  <Step title="Check PostgreSQL Status">
+    <CodeGroup>
+    ```bash Linux
+    sudo systemctl status postgresql
+    ```
+    
+    ```bash macOS
+    brew services list | grep postgresql
+    ```
+    
+    ```bash Windows
+    # Check services in Task Manager or:
+    sc query postgresql
+    ```
+    </CodeGroup>
+  </Step>
+  
+  <Step title="Test Connection">
+    Try connecting to the database:
+    
+    ```bash
+    psql -U postgres -d partsCatalog
+    ```
+    
+    If successful, you'll see the PostgreSQL prompt:
+    ```
+    partsCatalog=#
+    ```
+  </Step>
+</Steps>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Database already exists error">
+    If you get an error that the database already exists:
+    
+    1. Connect to PostgreSQL: `psql -U postgres`
+    2. Drop the existing database: `DROP DATABASE "partsCatalog";`
+    3. Recreate it: `CREATE DATABASE "partsCatalog" OWNER postgres;`
+  </Accordion>
+  
+  <Accordion title="Permission denied for schema public">
+    Grant proper permissions:
+    
+    ```sql
+    GRANT ALL ON SCHEMA public TO postgres;
+    GRANT ALL ON SCHEMA public TO public;
+    ```
+  </Accordion>
+  
+  <Accordion title="PostgreSQL not running">
+    Start PostgreSQL service:
+    
+    <CodeGroup>
+    ```bash Linux
+    sudo systemctl start postgresql
+    ```
+    
+    ```bash macOS
+    brew services start postgresql
+    ```
+    
+    ```bash Windows
+    net start postgresql
+    ```
+    </CodeGroup>
+  </Accordion>
+  
+  <Accordion title="Connection refused">
+    Check if PostgreSQL is listening on port 5432:
+    
+    ```bash
+    netstat -an | grep 5432
+    ```
+    
+    Or check PostgreSQL configuration in `/etc/postgresql/*/main/postgresql.conf`
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+With your database configured, proceed to:
+- [Configuration](/getting-started/configuration) - Configure application properties and environment variables

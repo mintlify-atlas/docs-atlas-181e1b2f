@@ -1,0 +1,380 @@
+---
+title: Features
+description: Comprehensive guide to all features and capabilities of the Parts Catalog application
+---
+
+# Features Overview
+
+Parts Catalog provides a rich set of features for managing automotive parts catalogs. This page details all available functionality with examples and implementation details.
+
+## Parts Management
+
+The core functionality revolves around comprehensive parts catalog management.
+
+### Create New Parts
+
+Add new parts to the catalog with complete information:
+
+```json
+POST /api/v1/parts
+{
+  "name": "Polia",
+  "applicationVehicle": "Fusca",
+  "netWeight": 9.87,
+  "grossWeight": 10.98
+}
+```
+
+**Implementation**: The `createPart` method in `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/controller/PartController.java:90`
+
+<Note>
+  All weight values support decimal precision with up to 2 decimal places. The system validates that net weight cannot exceed gross weight.
+</Note>
+
+### List All Parts
+
+Retrieve all parts in alphabetical order by name:
+
+```json
+GET /api/v1/parts
+```
+
+**Key Features**:
+- Automatic alphabetical sorting by name
+- Returns HTTP 204 (No Content) when catalog is empty
+- Efficient query using Spring Data JPA method: `findByOrderByNameAsc()`
+
+**Implementation**: See `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/repository/PartRepository.java:11`
+
+### Search by Name
+
+Find parts using keyword search in the part name:
+
+```json
+GET /api/v1/parts?name=polia
+```
+
+**Features**:
+- Case-insensitive search
+- Partial matching (contains search)
+- Results sorted alphabetically
+- Powered by JPA query method: `findByNameContainingIgnoreCaseOrderByNameAsc()`
+
+### Search by Vehicle Application
+
+Locate parts compatible with specific vehicles:
+
+```json
+GET /api/v1/parts?vehicle=fusca
+```
+
+**Implementation**: Uses `findByApplicationVehicleContainingIgnoreCaseOrderByNameAsc()` at `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/repository/PartRepository.java:13`
+
+### Retrieve Part by ID
+
+Get detailed information about a specific part:
+
+```json
+GET /api/v1/parts/1
+```
+
+Returns complete part data including associated vehicles.
+
+### Update Parts
+
+Modify existing part information:
+
+```json
+PUT /api/v1/parts/1
+{
+  "name": "Updated Polia",
+  "applicationVehicle": "Updated Fusca",
+  "netWeight": 9.87,
+  "grossWeight": 10.98
+}
+```
+
+**Validation Rules**:
+- All fields are required (name, netWeight, grossWeight)
+- Net weight must be less than or equal to gross weight
+- Decimal values limited to 2 decimal places
+
+### Delete Operations
+
+**Delete Single Part**:
+```json
+DELETE /api/v1/parts/1
+```
+
+**Delete All Parts**:
+```json
+DELETE /api/v1/parts
+```
+
+<Warning>
+  Deleting all parts is a destructive operation that cannot be undone. Use with caution in production environments.
+</Warning>
+
+## Vehicle Management
+
+Manage the vehicle database independently from parts.
+
+### Create Vehicles
+
+Add new vehicles to the database:
+
+```json
+POST /api/v1/vehicles
+{
+  "name": "Volkswagen Fusca 1300"
+}
+```
+
+**Data Model**: Defined in `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/model/Vehicle.java`
+
+### List Vehicles
+
+Retrieve all registered vehicles:
+
+```json
+GET /api/v1/vehicles
+```
+
+### Update and Delete Vehicles
+
+**Update Vehicle**:
+```json
+PUT /api/v1/vehicles/1
+{
+  "name": "Updated Vehicle Name"
+}
+```
+
+**Delete Single Vehicle**:
+```json
+DELETE /api/v1/vehicles/1
+```
+
+**Delete All Vehicles**:
+```json
+DELETE /api/v1/vehicles
+```
+
+## Part-Vehicle Relationships
+
+Establish and manage many-to-many relationships between parts and vehicles.
+
+### Relationship Model
+
+The relationship is implemented using JPA's `@ManyToMany` annotation with a join table:
+
+```java
+@ManyToMany
+@JoinTable(
+  name = "part_vehicle",
+  joinColumns = @JoinColumn(name = "part_id"),
+  inverseJoinColumns = @JoinColumn(name = "vehicle_id")
+)
+private Set<Vehicle> vehicles = new HashSet<>();
+```
+
+**Source**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/model/Part.java:36-38`
+
+### List Related Vehicles
+
+Get all vehicles associated with a specific part:
+
+```json
+GET /api/v1/parts/1/vehicles
+```
+
+**Implementation**: `PartController.getVehiclesByPart()` at line 146
+
+### Add Vehicle to Part
+
+Create a relationship between a part and a vehicle:
+
+```json
+POST /api/v1/parts/1/vehicles/5
+```
+
+This creates a bidirectional relationship using the `addVehicle()` helper method:
+
+```java
+public void addVehicle(Vehicle vehicle) {
+    this.vehicles.add(vehicle);
+    vehicle.getParts().add(this);
+}
+```
+
+**Source**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/model/Part.java:94-97`
+
+### Remove Vehicle from Part
+
+Remove the relationship between a part and a vehicle:
+
+```json
+DELETE /api/v1/parts/1/vehicles/5
+```
+
+<Note>
+  Relationship operations maintain bidirectional consistency. Adding or removing a vehicle from a part automatically updates the inverse relationship.
+</Note>
+
+## Frontend Features
+
+The Vue.js frontend provides an intuitive user interface for all backend operations.
+
+### Component Structure
+
+The application uses the following Vue components:
+
+- **PartsList.vue**: Main listing page with search and filter capabilities
+- **Part.vue**: Detailed part view with update and delete options
+- **AddPart.vue**: Form for creating new parts
+- **VehiclesList.vue**: Vehicle management interface
+- **AddVehicle.vue**: Vehicle creation form
+
+**Location**: `frontend/src/components/`
+
+### Routing Configuration
+
+The application uses Vue Router for navigation:
+
+```javascript
+{
+  path: "/",
+  alias: "/parts",
+  name: "parts",
+  component: () => import("./components/PartsList")
+},
+{
+  path: "/parts/:id",
+  name: "part-details",
+  component: () => import("./components/Part")
+}
+```
+
+**Source**: `frontend/src/router.js:9-18`
+
+### Data Services
+
+The frontend uses Axios-based service classes for API communication:
+
+```javascript
+class PartDataService {
+  getAll() {
+    return http.get("/parts");
+  }
+  
+  findByName(name) {
+    return http.get(`/parts?name=${name}`);
+  }
+  
+  findByVehicle(vehicle) {
+    return http.get(`/parts?vehicle=${vehicle}`);
+  }
+}
+```
+
+**Source**: `frontend/src/services/PartDataService.js:3-34`
+
+## User Interface Highlights
+
+### Initial Screen
+
+When no parts are registered, the application displays an empty state interface.
+
+### Parts Listing
+
+The main parts list includes:
+- Alphabetically sorted parts display
+- Search by part name functionality
+- Search by vehicle application functionality
+- Delete individual or all parts
+- Quick navigation to part details
+
+### Part Details View
+
+- Display complete part information
+- Edit part attributes inline
+- Delete part option
+- Manage vehicle relationships
+- Link/unlink vehicles to the current part
+
+### Validation Features
+
+<CardGroup cols={2}>
+  <Card title="Required Fields" icon="check">
+    Name, net weight, and gross weight are mandatory fields
+  </Card>
+  
+  <Card title="Weight Validation" icon="scale-balanced">
+    System prevents net weight from exceeding gross weight with error messages
+  </Card>
+  
+  <Card title="Decimal Precision" icon="calculator">
+    Weight values limited to 2 decimal places for accuracy
+  </Card>
+  
+  <Card title="Case-Insensitive Search" icon="magnifying-glass">
+    All search operations ignore case for better user experience
+  </Card>
+</CardGroup>
+
+## API Documentation with Swagger
+
+The application includes comprehensive API documentation through Swagger UI.
+
+**Access**: `http://localhost:8080/swagger-ui.html`
+
+**Configuration**: See `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/utils/SwaggerConfig.java`
+
+### Swagger Annotations
+
+All controller methods are annotated for automatic documentation:
+
+```java
+@ApiOperation(value = "Exibe todas as peças em ordem alfabética")
+@GetMapping("/parts")
+public ResponseEntity<List<Part>> getAllParts(...) {
+  // Implementation
+}
+```
+
+**Source**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/controller/PartController.java:44`
+
+## Testing Features
+
+The application includes comprehensive unit testing with JUnit 5.
+
+### Test Environment
+
+- **Framework**: JUnit 5
+- **Database**: H2 in-memory database for isolated testing
+- **Coverage**: Repository layer tests with `@DataJpaTest`
+
+**Test Files**:
+- `backend/src/test/java/br/com/tarcnux/spring/jpa/postgresql/JPAUnitTest.java`
+- `backend/src/test/java/br/com/tarcnux/spring/jpa/postgresql/PartControllerTest.java`
+
+<Note>
+  All tests use the H2 in-memory database, ensuring fast execution and no impact on production data.
+</Note>
+
+## Cross-Origin Resource Sharing (CORS)
+
+The backend is configured to accept requests from the frontend:
+
+```java
+@CrossOrigin(origins = "http://localhost:8081")
+@RestController
+@RequestMapping("/api/v1")
+public class PartController {
+  // Controller implementation
+}
+```
+
+**Source**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/controller/PartController.java:31`
+
+This enables seamless communication between the Vue.js frontend (port 8081) and Spring Boot backend (port 8080).

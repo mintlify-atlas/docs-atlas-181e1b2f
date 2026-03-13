@@ -1,0 +1,230 @@
+---
+title: Installation
+description: Step-by-step guide to clone and set up the Parts Catalog application
+---
+
+This guide will walk you through cloning the repository and setting up both the backend and frontend applications.
+
+## Clone the Repository
+
+<Steps>
+  <Step title="Create a Workspace Directory">
+    First, create a directory for your project workspace:
+    
+    ```bash
+    mkdir ws-parts-catalog
+    cd ws-parts-catalog
+    ```
+    
+    <Tip>You can name your workspace directory anything you prefer. We'll use `ws-parts-catalog` as an example.</Tip>
+  </Step>
+  
+  <Step title="Clone the Repository">
+    Clone the Parts Catalog repository from GitHub:
+    
+    ```bash
+    git clone https://github.com/tarcnux/parts-catalog.git
+    cd parts-catalog
+    ```
+    
+    The repository contains two main directories:
+    - `backend/` - Spring Boot application
+    - `frontend/` - Vue.js application
+  </Step>
+</Steps>
+
+## Backend Installation
+
+<Steps>
+  <Step title="Navigate to Backend Directory">
+    ```bash
+    cd backend
+    ```
+  </Step>
+  
+  <Step title="Install Backend Dependencies">
+    Maven will automatically download all required dependencies when you first run the application. You can also manually install them:
+    
+    <CodeGroup>
+    ```bash Using Maven
+    mvn clean install
+    ```
+    
+    ```bash Using Maven Wrapper
+    ./mvnw clean install
+    ```
+    </CodeGroup>
+    
+    <Note>The Maven wrapper (`mvnw`) is included in the project, so you don't need Maven installed globally.</Note>
+  </Step>
+  
+  <Step title="Verify Dependencies">
+    The backend uses the following key dependencies:
+    - Spring Boot 2.4.3
+    - Spring Data JPA
+    - PostgreSQL Driver
+    - Spring Web MVC
+    - Swagger 2.9.2 (API documentation)
+    - H2 Database (for testing)
+    - JUnit 5 (for unit tests)
+    
+    These are automatically managed through the `pom.xml` file.
+  </Step>
+</Steps>
+
+### Using Spring Tool Suite (Recommended)
+
+<Steps>
+  <Step title="Open Spring Tool Suite">
+    Launch Spring Tool Suite 4 (STS).
+  </Step>
+  
+  <Step title="Import Maven Project">
+    1. Go to **File > Import**
+    2. Select **Maven > Existing Maven Projects**
+    3. Click **Next**
+    4. Browse to the `backend` directory in your cloned repository
+    5. Click **Finish**
+  </Step>
+  
+  <Step title="Configure JUnit (Optional)">
+    To run unit tests, add JUnit to the build path:
+    
+    1. Right-click on the backend project
+    2. Select **Build Path > Add Libraries**
+    3. Choose **JUnit**
+    4. Select **JUnit 5**
+    5. Click **Finish**
+  </Step>
+</Steps>
+
+## Frontend Installation
+
+<Steps>
+  <Step title="Navigate to Frontend Directory">
+    From the project root directory:
+    
+    ```bash
+    cd frontend
+    ```
+  </Step>
+  
+  <Step title="Install Node Dependencies">
+    Install all required npm packages:
+    
+    <CodeGroup>
+    ```bash npm
+    npm install
+    ```
+    
+    ```bash yarn
+    yarn install
+    ```
+    
+    ```bash pnpm
+    pnpm install
+    ```
+    </CodeGroup>
+    
+    <Note>On Linux, you may need to use `sudo npm install` if you encounter permission issues.</Note>
+  </Step>
+  
+  <Step title="Verify Installation">
+    After installation completes, verify that the `node_modules` directory was created and contains all dependencies.
+    
+    The frontend uses:
+    - Vue.js 2.6.11
+    - Vue Router 3.5.1
+    - Axios 0.21.1
+    - Vue CLI 4.5.0
+  </Step>
+</Steps>
+
+### Troubleshooting Frontend Installation
+
+If you encounter issues with `npm run serve`, try the following:
+
+<Steps>
+  <Step title="Clean Installation">
+    Remove existing dependencies and reinstall:
+    
+    ```bash
+    rm -rf node_modules package-lock.json
+    npm cache verify
+    npm install
+    ```
+  </Step>
+  
+  <Step title="Update npm Globally">
+    <CodeGroup>
+    ```bash Linux/macOS
+    sudo npm install -g npm
+    ```
+    
+    ```bash Windows
+    npm install -g npm
+    ```
+    </CodeGroup>
+  </Step>
+  
+  <Step title="Reinstall Dependencies">
+    After updating npm, reinstall project dependencies:
+    
+    ```bash
+    npm install
+    ```
+  </Step>
+</Steps>
+
+## Project Structure
+
+After installation, your project structure should look like this:
+
+```
+parts-catalog/
+├── backend/
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── java/
+│   │   │   └── resources/
+│   │   │       └── application.properties
+│   │   └── test/
+│   ├── pom.xml
+│   └── mvnw
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── router/
+│   │   └── services/
+│   ├── package.json
+│   └── node_modules/
+└── README.md
+```
+
+## Verification
+
+<CardGroup cols={2}>
+  <Card title="Backend Dependencies" icon="java">
+    Verify Maven dependencies are installed:
+    ```bash
+    mvn dependency:tree
+    ```
+  </Card>
+  
+  <Card title="Frontend Dependencies" icon="npm">
+    Verify npm packages are installed:
+    ```bash
+    npm list --depth=0
+    ```
+  </Card>
+</CardGroup>
+
+<Warning>
+Before running the application, make sure to complete the [database setup](/getting-started/database-setup) and [configuration](/getting-started/configuration) steps.
+</Warning>
+
+## Next Steps
+
+Now that you've installed the application, proceed to:
+1. [Database Setup](/getting-started/database-setup) - Create and configure the PostgreSQL database
+2. [Configuration](/getting-started/configuration) - Configure application properties

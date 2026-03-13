@@ -1,0 +1,381 @@
+---
+title: Configuration
+description: Configure application properties and environment variables for the Parts Catalog
+---
+
+This guide covers the configuration settings for both the backend and frontend applications.
+
+## Backend Configuration
+
+The backend application is configured through the `application.properties` file located at:
+
+```
+backend/src/main/resources/application.properties
+```
+
+### Database Configuration
+
+<Steps>
+  <Step title="Open Configuration File">
+    Navigate to and open the `application.properties` file:
+    
+    ```bash
+    cd backend/src/main/resources
+    nano application.properties
+    ```
+  </Step>
+  
+  <Step title="Configure Database Connection">
+    Update the database connection settings:
+    
+    ```properties
+    spring.datasource.url=jdbc:postgresql://localhost:5432/partsCatalog
+    spring.datasource.username=postgres
+    spring.datasource.password=postgres
+    ```
+    
+    <Accordion title="Configuration Parameters Explained">
+      - `spring.datasource.url`: JDBC connection URL
+        - `localhost`: Database host (change if using remote database)
+        - `5432`: PostgreSQL port (default)
+        - `partsCatalog`: Database name
+      - `spring.datasource.username`: PostgreSQL username
+      - `spring.datasource.password`: PostgreSQL password
+    </Accordion>
+    
+    <Warning>
+    Never commit sensitive passwords to version control. Consider using environment variables for production deployments.
+    </Warning>
+  </Step>
+  
+  <Step title="Configure Hibernate Properties">
+    The following Hibernate settings are pre-configured:
+    
+    ```properties
+    spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation=true
+    spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+    ```
+    
+    <Note>
+    These settings ensure proper PostgreSQL compatibility. Do not modify unless you know what you're doing.
+    </Note>
+  </Step>
+  
+  <Step title="Configure DDL Auto">
+    The schema generation strategy is set to:
+    
+    ```properties
+    spring.jpa.hibernate.ddl-auto=update
+    ```
+    
+    <Accordion title="DDL Auto Options">
+      - `update`: Updates the schema, preserves data (recommended for development)
+      - `create`: Creates new schema, drops previous data
+      - `create-drop`: Creates schema, drops on shutdown
+      - `validate`: Validates schema, makes no changes
+      - `none`: Disables DDL handling
+    </Accordion>
+    
+    <Tip>
+    Use `update` for development and `validate` for production to prevent accidental data loss.
+    </Tip>
+  </Step>
+  
+  <Step title="Configure Open-in-View">
+    The lazy loading configuration is set to:
+    
+    ```properties
+    spring.jpa.open-in-view=false
+    ```
+    
+    This prevents lazy loading exceptions and improves performance.
+  </Step>
+</Steps>
+
+### Complete Configuration File
+
+Here's the complete default `application.properties` configuration:
+
+```properties application.properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/partsCatalog
+spring.datasource.username=postgres
+spring.datasource.password=postgres
+
+spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+# Hibernate ddl auto (create, create-drop, validate, update)
+spring.jpa.hibernate.ddl-auto=update
+
+spring.jpa.open-in-view=false
+```
+
+## Custom Database Configuration
+
+If your PostgreSQL setup differs from the defaults:
+
+<Steps>
+  <Step title="Different PostgreSQL Port">
+    If PostgreSQL runs on a non-default port:
+    
+    ```properties
+    spring.datasource.url=jdbc:postgresql://localhost:PORT_NUMBER/partsCatalog
+    ```
+    
+    Replace `PORT_NUMBER` with your actual port number.
+  </Step>
+  
+  <Step title="Remote Database Host">
+    If using a remote PostgreSQL server:
+    
+    ```properties
+    spring.datasource.url=jdbc:postgresql://REMOTE_HOST:5432/partsCatalog
+    ```
+    
+    Replace `REMOTE_HOST` with your database server address.
+  </Step>
+  
+  <Step title="Custom Credentials">
+    Update username and password to match your PostgreSQL setup:
+    
+    ```properties
+    spring.datasource.username=your_username
+    spring.datasource.password=your_password
+    ```
+  </Step>
+  
+  <Step title="Custom Database Name">
+    If you named your database differently:
+    
+    ```properties
+    spring.datasource.url=jdbc:postgresql://localhost:5432/your_database_name
+    ```
+  </Step>
+</Steps>
+
+## Environment Variables (Production)
+
+For production deployments, use environment variables instead of hardcoded values:
+
+### Using Environment Variables
+
+```properties application.properties
+spring.datasource.url=${DATABASE_URL:jdbc:postgresql://localhost:5432/partsCatalog}
+spring.datasource.username=${DATABASE_USERNAME:postgres}
+spring.datasource.password=${DATABASE_PASSWORD:postgres}
+```
+
+### Setting Environment Variables
+
+<CodeGroup>
+```bash Linux/macOS
+export DATABASE_URL="jdbc:postgresql://localhost:5432/partsCatalog"
+export DATABASE_USERNAME="postgres"
+export DATABASE_PASSWORD="your_secure_password"
+```
+
+```bash Windows (Command Prompt)
+set DATABASE_URL=jdbc:postgresql://localhost:5432/partsCatalog
+set DATABASE_USERNAME=postgres
+set DATABASE_PASSWORD=your_secure_password
+```
+
+```bash Windows (PowerShell)
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/partsCatalog"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="your_secure_password"
+```
+</CodeGroup>
+
+<Warning>
+Always use environment variables for sensitive information in production environments. Never commit passwords to version control.
+</Warning>
+
+## Frontend Configuration
+
+The frontend application connects to the backend API.
+
+### API Endpoint Configuration
+
+<Steps>
+  <Step title="Locate HTTP Service File">
+    The API base URL is configured in:
+    
+    ```
+    frontend/src/services/http-common.js
+    ```
+  </Step>
+  
+  <Step title="Default API Configuration">
+    By default, the frontend connects to:
+    
+    ```javascript
+    http://localhost:8080/api/v1
+    ```
+    
+    This matches the default backend URL.
+  </Step>
+  
+  <Step title="Custom Backend URL">
+    If your backend runs on a different host or port, update the base URL:
+    
+    ```javascript
+    import axios from 'axios';
+    
+    export default axios.create({
+      baseURL: "http://your-backend-host:port/api/v1",
+      headers: {
+        "Content-type": "application/json"
+      }
+    });
+    ```
+  </Step>
+</Steps>
+
+### Development Server Configuration
+
+The frontend development server runs on port 8081 by default.
+
+<Accordion title="Changing the Frontend Port">
+To run the frontend on a different port, use:
+
+```bash
+npm run serve -- --port 3000
+```
+
+Or create a `vue.config.js` file:
+
+```javascript vue.config.js
+module.exports = {
+  devServer: {
+    port: 3000
+  }
+}
+```
+</Accordion>
+
+## Server Ports Summary
+
+<CardGroup cols={3}>
+  <Card title="Backend API" icon="server">
+    **Port**: 8080
+    
+    `http://localhost:8080`
+  </Card>
+  
+  <Card title="Frontend App" icon="browser">
+    **Port**: 8081
+    
+    `http://localhost:8081`
+  </Card>
+  
+  <Card title="PostgreSQL" icon="database">
+    **Port**: 5432
+    
+    `localhost:5432`
+  </Card>
+</CardGroup>
+
+## Additional Configuration Options
+
+### Swagger API Documentation
+
+Swagger UI is automatically available at:
+
+```
+http://localhost:8080/swagger-ui.html
+```
+
+<Note>
+No additional configuration is needed for Swagger. It's automatically configured through the Spring Boot dependencies.
+</Note>
+
+### Logging Configuration
+
+To enable detailed logging, add to `application.properties`:
+
+```properties
+# Enable SQL logging
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+# Set logging levels
+logging.level.org.hibernate.SQL=DEBUG
+logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
+logging.level.br.com.tarcnux=DEBUG
+```
+
+### CORS Configuration
+
+By default, the backend allows cross-origin requests from the frontend. If you need to modify CORS settings, check the Spring Boot controller configurations.
+
+## Verification
+
+<Steps>
+  <Step title="Verify Backend Configuration">
+    Ensure all database settings are correct and the database exists.
+  </Step>
+  
+  <Step title="Test Database Connection">
+    Before starting the application, test the database connection:
+    
+    ```bash
+    psql -U postgres -d partsCatalog
+    ```
+  </Step>
+  
+  <Step title="Verify Frontend API URL">
+    Ensure the frontend is configured to connect to the correct backend URL.
+  </Step>
+</Steps>
+
+## Configuration Checklist
+
+<Steps>
+  <Step title="Database Settings">
+    - [ ] Database name: `partsCatalog`
+    - [ ] Username and password configured
+    - [ ] PostgreSQL running on correct port
+  </Step>
+  
+  <Step title="Backend Settings">
+    - [ ] `application.properties` updated
+    - [ ] Hibernate DDL auto set appropriately
+    - [ ] Backend port 8080 available
+  </Step>
+  
+  <Step title="Frontend Settings">
+    - [ ] API base URL configured
+    - [ ] Frontend port 8081 available
+    - [ ] npm dependencies installed
+  </Step>
+</Steps>
+
+<Tip>
+After completing the configuration, you're ready to run the application! See the [Installation Guide](/getting-started/installation) for instructions on running the backend and frontend.
+</Tip>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection refused to database">
+    - Verify PostgreSQL is running
+    - Check database host and port in `application.properties`
+    - Ensure database `partsCatalog` exists
+    - Verify username and password are correct
+  </Accordion>
+  
+  <Accordion title="Frontend cannot connect to backend">
+    - Ensure backend is running on port 8080
+    - Check API base URL in `http-common.js`
+    - Verify CORS is properly configured
+    - Check browser console for errors
+  </Accordion>
+  
+  <Accordion title="Port already in use">
+    - Backend port 8080 or frontend port 8081 may be occupied
+    - Stop conflicting processes or configure different ports
+    - On Linux/macOS: `lsof -i :8080` to find process
+    - On Windows: `netstat -ano | findstr :8080`
+  </Accordion>
+</AccordionGroup>

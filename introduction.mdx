@@ -1,0 +1,120 @@
+---
+title: Introduction
+description: A comprehensive overview of the Parts Catalog application - a full-stack web solution for managing automotive parts catalogs
+---
+
+# Parts Catalog
+
+Parts Catalog is a full-stack CRUD web application designed to manage automotive parts catalogs for companies. It provides a comprehensive solution for cataloging, searching, and managing automotive parts and their associated vehicle applications.
+
+## What is Parts Catalog?
+
+Parts Catalog is a web application built with modern technologies that enables companies to:
+
+- **Manage Parts Inventory**: Create, read, update, and delete parts in the catalog with detailed information including name, application vehicle, net weight, and gross weight
+- **Manage Vehicle Database**: Maintain a separate database of vehicles that can be linked to parts
+- **Establish Relationships**: Create many-to-many relationships between parts and vehicles, allowing for flexible catalog organization
+- **Search and Filter**: Quickly find parts by name or vehicle application using intelligent search capabilities
+
+<Note>
+  Parts Catalog uses a modern full-stack architecture with Java Spring Boot powering the backend API and Vue.js providing a reactive frontend interface.
+</Note>
+
+## Key Capabilities
+
+<CardGroup cols={2}>
+  <Card title="Parts Management" icon="gear">
+    Complete CRUD operations for automotive parts with alphabetical sorting, keyword search by name or vehicle, and bulk operations
+  </Card>
+  
+  <Card title="Vehicle Management" icon="car">
+    Dedicated vehicle entity management with the ability to create, list, update, and delete vehicles from the catalog
+  </Card>
+  
+  <Card title="Relationship Mapping" icon="link">
+    Many-to-many relationship support between parts and vehicles, enabling complex catalog structures
+  </Card>
+  
+  <Card title="RESTful API" icon="code">
+    Well-documented REST API with Swagger integration for easy integration with other systems
+  </Card>
+</CardGroup>
+
+## Technology Stack
+
+Parts Catalog leverages industry-standard technologies:
+
+### Backend
+- **Java 11**: Modern Java language features
+- **Spring Boot 2.4.3**: Rapid application development framework
+- **Spring Data JPA**: Simplified database access layer
+- **PostgreSQL**: Production-grade relational database
+- **H2 Database**: In-memory database for unit testing
+- **Maven**: Dependency management and build tool
+- **Swagger**: API documentation and testing interface
+
+### Frontend
+- **Vue.js 2.6**: Progressive JavaScript framework
+- **Vue Router 3.5**: Client-side routing
+- **Axios**: HTTP client for API communication
+- **Vue CLI**: Build tooling and development server
+
+## Use Cases
+
+Parts Catalog is ideal for:
+
+- **Automotive Parts Distributors**: Companies that need to maintain catalogs of parts and their vehicle applications
+- **Repair Shops**: Businesses that need to track which parts fit which vehicles
+- **Manufacturing**: Parts manufacturers managing compatibility databases
+- **E-commerce**: Online stores selling automotive parts with vehicle fitment information
+
+## Project Structure
+
+The application is organized into two main directories:
+
+```
+parts-catalog/
+├── backend/          # Spring Boot application
+│   └── src/
+│       ├── main/java/
+│       └── test/java/
+└── frontend/         # Vue.js application
+    └── src/
+        ├── components/
+        ├── services/
+        └── router.js
+```
+
+<Warning>
+  The application requires PostgreSQL to be installed and running with a database named `partsCatalog` owned by the `postgres` user.
+</Warning>
+
+## Quick Start
+
+Get started with Parts Catalog in three simple steps:
+
+1. **Setup Database**: Create a PostgreSQL database named `partsCatalog`
+2. **Start Backend**: Run the Spring Boot application on `http://localhost:8080`
+3. **Start Frontend**: Launch the Vue.js development server on `http://localhost:8081`
+
+## API Documentation
+
+The application includes built-in Swagger documentation accessible at:
+
+```
+http://localhost:8080/swagger-ui.html
+```
+
+All API endpoints are versioned and accessible under the `/api/v1` base path.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Features" href="/features">
+    Learn about all the features and capabilities of Parts Catalog
+  </Card>
+  
+  <Card title="Understand Architecture" href="/architecture">
+    Dive deep into the system architecture and design patterns
+  </Card>
+</CardGroup>

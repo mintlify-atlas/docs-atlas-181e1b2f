@@ -1,0 +1,395 @@
+---
+title: 'Troubleshooting'
+description: 'Common issues and solutions for the Parts Catalog application'
+---
+
+## Common Issues
+
+This guide covers common problems you might encounter when setting up or running the Parts Catalog application, along with their solutions.
+
+## Backend Issues
+
+<Accordion title="JUnit tests show compilation errors in IDE">
+**Problem:** Test files display errors in Spring Tool Suite or Eclipse even though the code is correct.
+
+**Solution:** Add JUnit 5 to the Build Path:
+
+1. Right-click on the `backend` project
+2. Select **Build Path** → **Add Libraries**
+3. Choose **JUnit**
+4. Click **Next**
+5. Select **JUnit 5**
+6. Click **Finish**
+
+The errors should disappear immediately. This is a one-time setup per workspace.
+</Accordion>
+
+<Accordion title="PostgreSQL connection refused">
+**Problem:** Application fails to start with error: `Connection to localhost:5432 refused`
+
+**Solution:** Ensure PostgreSQL is running:
+
+**Linux/Mac:**
+```bash
+sudo service postgresql start
+# or
+brew services start postgresql
+```
+
+**Windows:**
+- Start PostgreSQL from Services or pgAdmin
+
+Verify the database exists:
+```sql
+-- Connect to pgAdmin at http://127.0.0.1/pgadmin4/browser/
+-- Check if 'partsCatalog' database exists
+-- If not, create it with owner 'postgres'
+```
+</Accordion>
+
+<Accordion title="Database authentication failed">
+**Problem:** Error: `FATAL: password authentication failed for user "postgres"`
+
+**Solution:** Update credentials in `backend/src/main/resources/application.properties`:
+
+```properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/partsCatalog
+spring.datasource.username=YOUR_USERNAME
+spring.datasource.password=YOUR_PASSWORD
+```
+
+Replace `YOUR_USERNAME` and `YOUR_PASSWORD` with your actual PostgreSQL credentials.
+
+See [Issue #16](https://github.com/tarcnux/parts-catalog/issues/16) for more configuration options.
+</Accordion>
+
+<Accordion title="Port 8080 already in use">
+**Problem:** Application fails to start: `Port 8080 was already in use`
+
+**Solution:** Either stop the process using port 8080 or change the application port:
+
+**Option 1 - Stop existing process:**
+```bash
+# Find process using port 8080
+lsof -i :8080
+# Kill the process
+kill -9 <PID>
+```
+
+**Option 2 - Change port:**
+Add to `application.properties`:
+```properties
+server.port=8081
+```
+</Accordion>
+
+<Accordion title="Tests fail with 'Table not found' error">
+**Problem:** JUnit tests fail with H2 database errors about missing tables.
+
+**Solution:** This typically happens when:
+
+1. **Entity classes are not properly annotated** - Verify `@Entity`, `@Table`, and `@Id` annotations
+2. **Package scanning is incorrect** - Ensure test classes are in the same or sub-package as the main application class
+
+Check that your test class uses `@DataJpaTest`:
+```java
+@RunWith(SpringRunner.class)
+@DataJpaTest
+public class JPAUnitTest {
+    // test methods
+}
+```
+
+The H2 schema is auto-generated from JPA entities when using `@DataJpaTest`.
+</Accordion>
+
+<Accordion title="Maven build fails with dependency errors">
+**Problem:** `mvn clean install` fails with dependency resolution errors.
+
+**Solution:** Clean Maven cache and rebuild:
+
+```bash
+cd backend
+mvn clean
+rm -rf ~/.m2/repository
+mvn install
+```
+
+If specific dependencies fail, check your internet connection and Maven repository access.
+</Accordion>
+
+<Accordion title="Application starts but Swagger UI not accessible">
+**Problem:** Accessing `http://localhost:8080/swagger-ui.html` returns 404.
+
+**Solution:** Verify Swagger dependencies in `pom.xml`:
+
+```xml
+<dependency>
+    <groupId>io.springfox</groupId>
+    <artifactId>springfox-swagger2</artifactId>
+    <version>2.9.2</version>
+</dependency>
+<dependency>
+    <groupId>io.springfox</groupId>
+    <artifactId>springfox-swagger-ui</artifactId>
+    <version>2.9.2</version>
+</dependency>
+```
+
+Restart the application after adding dependencies.
+</Accordion>
+
+## Frontend Issues
+
+<Accordion title="npm install fails with permission errors">
+**Problem:** `npm install` fails with EACCES or permission denied errors.
+
+**Solution:** Run with appropriate permissions:
+
+**Linux/Mac:**
+```bash
+cd frontend
+sudo npm install
+```
+
+**Alternative (recommended):** Fix npm permissions globally:
+```bash
+mkdir ~/.npm-global
+npm config set prefix '~/.npm-global'
+echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+```
+</Accordion>
+
+<Accordion title="npm run serve fails after successful install">
+**Problem:** `npm run serve` crashes or shows dependency errors.
+
+**Solution:** Clean and reinstall node modules:
+
+```bash
+cd frontend
+rm -rf node_modules package-lock.json
+npm cache verify
+sudo npm i -g npm
+npm install
+npm run serve
+```
+
+This resolves most dependency conflicts and version mismatches.
+</Accordion>
+
+<Accordion title="Frontend cannot connect to backend API">
+**Problem:** API calls fail with CORS errors or connection refused.
+
+**Solution:** Ensure:
+
+1. **Backend is running** on `http://localhost:8080`
+2. **CORS is configured** in the Spring Boot application
+3. **API URL is correct** in frontend service files
+
+Check the API base URL in frontend configuration matches the backend:
+```javascript
+const API_URL = 'http://localhost:8080/api/v1';
+```
+</Accordion>
+
+<Accordion title="Port 8081 already in use">
+**Problem:** Frontend dev server won't start: `Port 8081 is already in use`
+
+**Solution:** Stop the existing process or use a different port:
+
+**Option 1 - Stop existing process:**
+```bash
+lsof -i :8081
+kill -9 <PID>
+```
+
+**Option 2 - Use different port:**
+```bash
+npm run serve -- --port 8082
+```
+</Accordion>
+
+<Accordion title="Vue Router shows blank page on direct URL access">
+**Problem:** Navigating directly to a route (e.g., `/parts/1`) shows a blank page.
+
+**Solution:** This is expected in development. The Vue Router handles client-side routing. Use:
+
+1. **Development:** Navigate through the app UI
+2. **Production:** Configure web server (nginx/Apache) to redirect all routes to `index.html`
+
+For nginx:
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+</Accordion>
+
+## Database Issues
+
+<Accordion title="Data persists between test runs">
+**Problem:** Tests fail because previous test data still exists.
+
+**Solution:** This shouldn't happen with `@DataJpaTest` as it provides automatic rollback. If it does:
+
+1. **Verify `@DataJpaTest` annotation** is present
+2. **Check transaction configuration** isn't disabled
+3. **Manually clean database** in test setup if needed:
+
+```java
+@BeforeEach
+public void setUp() {
+    repository.deleteAll();
+}
+```
+</Accordion>
+
+<Accordion title="PostgreSQL database doesn't exist">
+**Problem:** Application fails: `database "partsCatalog" does not exist`
+
+**Solution:** Create the database:
+
+1. Access pgAdmin at `http://127.0.0.1/pgadmin4/browser/`
+2. Expand **Servers** → **Local**
+3. Right-click **Databases** → **Create** → **Database**
+4. Set name: `partsCatalog`
+5. Set owner: `postgres`
+6. Click **Save**
+
+Alternatively, use command line:
+```bash
+psql -U postgres
+CREATE DATABASE "partsCatalog";
+\q
+```
+</Accordion>
+
+<Accordion title="Schema not created automatically">
+**Problem:** Tables don't exist in PostgreSQL database.
+
+**Solution:** Check `application.properties` has:
+
+```properties
+spring.jpa.hibernate.ddl-auto=update
+```
+
+Valid values:
+- `update` - Update schema if needed (recommended for development)
+- `create` - Create schema, destroy previous data
+- `create-drop` - Create schema, drop on application shutdown
+- `validate` - Validate schema, no changes
+- `none` - No schema management
+</Accordion>
+
+## Development Environment
+
+<Accordion title="Java version mismatch">
+**Problem:** Build fails with "unsupported class file version" or similar.
+
+**Solution:** Ensure Java 11 is installed and configured:
+
+```bash
+java -version
+# Should show Java 11
+
+# If not, set JAVA_HOME
+export JAVA_HOME=/path/to/java11
+export PATH=$JAVA_HOME/bin:$PATH
+```
+
+In STS/Eclipse, set project JDK:
+- Right-click project → **Properties** → **Java Build Path** → **Libraries**
+- Ensure JRE System Library points to Java 11
+</Accordion>
+
+<Accordion title="Maven not found or wrong version">
+**Problem:** `mvn` command not recognized or build fails.
+
+**Solution:** Install or update Maven:
+
+**Linux:**
+```bash
+sudo apt-get install maven
+```
+
+**Mac:**
+```bash
+brew install maven
+```
+
+**Windows:**
+Download from [maven.apache.org](https://maven.apache.org) and add to PATH.
+
+Verify installation:
+```bash
+mvn -version
+```
+</Accordion>
+
+<Accordion title="Git clone fails or is very slow">
+**Problem:** Cloning the repository times out or takes very long.
+
+**Solution:** Try these alternatives:
+
+1. **Use shallow clone:**
+```bash
+git clone --depth 1 https://github.com/tarcnux/parts-catalog.git
+```
+
+2. **Download ZIP** from GitHub instead
+3. **Check network/firewall** settings
+4. **Use GitHub CLI:**
+```bash
+gh repo clone tarcnux/parts-catalog
+```
+</Accordion>
+
+## Getting Help
+
+<Warning>
+If you encounter an issue not covered here, check the [GitHub Issues](https://github.com/tarcnux/parts-catalog/issues) page or create a new issue with:
+- Error message (full stack trace)
+- Steps to reproduce
+- Your environment (OS, Java version, Node version)
+- Relevant configuration files
+</Warning>
+
+<Note>
+Many issues can be resolved by ensuring all prerequisites are correctly installed:
+- Java 11
+- PostgreSQL (with database created)
+- Node.js and npm (for frontend)
+- Maven (or use IDE's embedded Maven)
+</Note>
+
+## Quick Diagnostic Checklist
+
+Before reporting an issue, verify:
+
+- [ ] Java 11 is installed (`java -version`)
+- [ ] PostgreSQL is running and database exists
+- [ ] Backend runs successfully (`mvn spring-boot:run`)
+- [ ] Backend is accessible at `http://localhost:8080`
+- [ ] Node.js is installed (`node -v`)
+- [ ] Frontend dependencies are installed (`npm install` completed)
+- [ ] No port conflicts (8080 for backend, 8081 for frontend)
+- [ ] Correct credentials in `application.properties`
+- [ ] JUnit 5 in Build Path (for running tests in IDE)
+
+## Logs and Debugging
+
+Enable debug logging in `application.properties`:
+
+```properties
+logging.level.root=INFO
+logging.level.br.com.tarcnux=DEBUG
+logging.level.org.springframework.web=DEBUG
+logging.level.org.hibernate=DEBUG
+```
+
+This provides detailed information about:
+- HTTP requests and responses
+- SQL queries executed
+- Bean initialization
+- Transaction management

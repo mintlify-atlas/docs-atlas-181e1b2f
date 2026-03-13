@@ -1,0 +1,619 @@
+---
+title: Architecture
+description: Detailed explanation of the Parts Catalog system architecture, design patterns, and technology stack
+---
+
+# System Architecture
+
+Parts Catalog implements a modern three-tier architecture separating the presentation layer (Vue.js), business logic layer (Spring Boot), and data persistence layer (PostgreSQL/JPA).
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Frontend Layer                       │
+│                  Vue.js 2.6 + Axios                     │
+│                    (Port 8081)                          │
+└─────────────────┬───────────────────────────────────────┘
+                  │ HTTP/REST
+                  │ JSON
+┌─────────────────▼───────────────────────────────────────┐
+│                   Backend Layer                         │
+│              Spring Boot 2.4.3 REST API                 │
+│                  (Port 8080)                            │
+│  ┌──────────────┬──────────────┬────────────────┐      │
+│  │ Controllers  │   Services   │   Repositories │      │
+│  └──────────────┴──────────────┴────────────────┘      │
+└─────────────────┬───────────────────────────────────────┘
+                  │ JDBC/JPA
+                  │ SQL
+┌─────────────────▼───────────────────────────────────────┐
+│                 Data Persistence Layer                  │
+│          PostgreSQL (Production)                        │
+│             H2 Database (Testing)                       │
+└─────────────────────────────────────────────────────────┘
+```
+
+<Note>
+  The application follows REST architectural principles with clear separation of concerns between layers.
+</Note>
+
+## Backend Architecture
+
+The backend is built using Spring Boot with a layered architecture pattern.
+
+### Application Entry Point
+
+```java
+@SpringBootApplication
+public class BackendApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(BackendApplication.class, args);
+    }
+}
+```
+
+**Location**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/BackendApplication.java`
+
+### Controller Layer
+
+RESTful controllers handle HTTP requests and responses.
+
+#### PartController
+
+Manages all part-related operations:
+
+```java
+@CrossOrigin(origins = "http://localhost:8081")
+@RestController
+@RequestMapping("/api/v1")
+@Api(value = "Part")
+public class PartController {
+    @Autowired
+    PartRepository partRepository;
+    
+    @Autowired
+    VehicleRepository vehicleRepository;
+    
+    // REST endpoints
+}
+```
+
+**Location**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/controller/PartController.java:31-41`
+
+**Key Design Patterns**:
+- **Dependency Injection**: Uses `@Autowired` for repository injection
+- **CORS Configuration**: `@CrossOrigin` enables frontend communication
+- **RESTful Design**: Uses proper HTTP methods (GET, POST, PUT, DELETE)
+- **API Documentation**: Swagger annotations (`@Api`, `@ApiOperation`)
+
+#### VehicleController
+
+Handles vehicle management operations with similar structure to PartController.
+
+**Location**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/controller/VehicleController.java`
+
+### Repository Layer
+
+Data access is managed through Spring Data JPA repositories.
+
+#### PartRepository
+
+```java
+public interface PartRepository extends JpaRepository<Part, Long> {
+    List<Part> findByOrderByNameAsc();
+    List<Part> findByNameContainingIgnoreCaseOrderByNameAsc(String name);
+    List<Part> findByApplicationVehicleContainingIgnoreCaseOrderByNameAsc(String vehicle);
+}
+```
+
+**Location**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/repository/PartRepository.java:9-14`
+
+**Design Pattern**: Repository Pattern
+- Abstracts data access logic
+- Provides query derivation from method names
+- Automatic implementation by Spring Data JPA
+
+#### VehicleRepository
+
+Similar structure extending `JpaRepository<Vehicle, Long>`.
+
+**Location**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/repository/VehicleRepository.java`
+
+## Data Models
+
+The application uses JPA entities to represent domain objects.
+
+### Part Entity
+
+Core entity representing automotive parts:
+
+```java
+@Entity
+@Table(name = "part")
+public class Part {
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
+    
+    @Column(name = "name")
+    private String name;
+    
+    @Column(name = "applicationVehicle")
+    private String applicationVehicle;
+    
+    @Column(name = "netWeight")
+    private Double netWeight;
+    
+    @Column(name = "grossWeight")
+    private Double grossWeight;
+    
+    @ManyToMany
+    @JoinTable(
+        name = "part_vehicle",
+        joinColumns = @JoinColumn(name = "part_id"),
+        inverseJoinColumns = @JoinColumn(name = "vehicle_id")
+    )
+    private Set<Vehicle> vehicles = new HashSet<>();
+}
+```
+
+**Location**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/model/Part.java:16-38`
+
+**Key Features**:
+- **Auto-generated ID**: Uses database sequence for primary key
+- **Column Mapping**: Explicit column name definitions
+- **Many-to-Many Relationship**: Join table strategy for vehicle associations
+- **Bidirectional Relationship**: Helper methods maintain consistency
+
+### Vehicle Entity
+
+Represents vehicles that parts can be associated with:
+
+```java
+@Entity
+@Table(name = "vehicle")
+public class Vehicle {
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
+    
+    @Column(name = "name")
+    private String name;
+    
+    @ManyToMany(mappedBy = "vehicles")
+    @JsonIgnore
+    private Set<Part> parts = new HashSet<>();
+}
+```
+
+**Location**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/model/Vehicle.java:16-29`
+
+**Key Features**:
+- **Inverse Side**: Uses `mappedBy` to indicate Part owns the relationship
+- **JSON Serialization**: `@JsonIgnore` prevents circular references
+- **Simplified Structure**: Minimal attributes for flexibility
+
+### Entity Relationship Diagram
+
+```
+┌─────────────────────┐              ┌─────────────────────┐
+│       Part          │              │      Vehicle        │
+├─────────────────────┤              ├─────────────────────┤
+│ id (PK)             │              │ id (PK)             │
+│ name                │              │ name                │
+│ applicationVehicle  │              │                     │
+│ netWeight           │              │                     │
+│ grossWeight         │              │                     │
+└──────────┬──────────┘              └──────────┬──────────┘
+           │                                    │
+           │         ┌──────────────────┐       │
+           └────────►│  part_vehicle    │◄──────┘
+                     ├──────────────────┤
+                     │ part_id (FK)     │
+                     │ vehicle_id (FK)  │
+                     └──────────────────┘
+```
+
+### Relationship Management
+
+Bidirectional relationship helpers ensure data consistency:
+
+```java
+public void addVehicle(Vehicle vehicle) {
+    this.vehicles.add(vehicle);
+    vehicle.getParts().add(this);
+}
+
+public void removeVehicle(Vehicle vehicle) {
+    this.vehicles.remove(vehicle);
+    vehicle.getParts().remove(this);
+}
+```
+
+**Location**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/model/Part.java:94-102`
+
+<Warning>
+  Always use the helper methods `addVehicle()` and `removeVehicle()` to maintain bidirectional relationship integrity. Direct Set manipulation may cause inconsistencies.
+</Warning>
+
+## Frontend Architecture
+
+The Vue.js frontend follows a component-based architecture.
+
+### Component Diagram
+
+```
+┌───────────────────────────────────────────────────────┐
+│                      App.vue                          │
+│                   (Root Component)                    │
+└─────────────┬─────────────────────────────────────────┘
+              │
+              │  Vue Router
+              │
+    ┌─────────┴───────────────┬────────────────────────┐
+    │                         │                        │
+┌───▼──────────┐   ┌─────────▼─────────┐   ┌─────────▼────────┐
+│  PartsList   │   │      Part         │   │  VehiclesList    │
+│   (List)     │   │   (Details)       │   │    (List)        │
+└───┬──────────┘   └───────────────────┘   └──────────────────┘
+    │
+    │
+┌───▼──────────┐   ┌─────────────────────┐
+│   AddPart    │   │    AddVehicle       │
+│   (Create)   │   │     (Create)        │
+└──────────────┘   └─────────────────────┘
+```
+
+### Routing Configuration
+
+Vue Router manages navigation between views:
+
+```javascript
+export default new Router({
+  mode: "history",
+  routes: [
+    {
+      path: "/",
+      alias: "/parts",
+      name: "parts",
+      component: () => import("./components/PartsList")
+    },
+    {
+      path: "/parts/:id",
+      name: "part-details",
+      component: () => import("./components/Part")
+    },
+    {
+      path: "/add",
+      name: "add",
+      component: () => import("./components/AddPart")
+    },
+    {
+      path: "/vehicles",
+      name: "vehicles",
+      component: () => import("./components/VehiclesList")
+    },
+    {
+      path: "/vehicles/add",
+      name: "add-vehicle",
+      component: () => import("./components/AddVehicle")
+    }
+  ]
+});
+```
+
+**Location**: `frontend/src/router.js:6-36`
+
+**Features**:
+- **History Mode**: Clean URLs without hash (#)
+- **Lazy Loading**: Components loaded on-demand for better performance
+- **Dynamic Routes**: Parameter-based routing for part details
+
+### Service Layer
+
+Data services encapsulate API communication:
+
+```javascript
+import http from "../http-common";
+
+class PartDataService {
+    getAll() {
+      return http.get("/parts");
+    }
+  
+    get(id) {
+      return http.get(`/parts/${id}`);
+    }
+  
+    create(data) {
+      return http.post("/parts", data);
+    }
+  
+    update(id, data) {
+      return http.put(`/parts/${id}`, data);
+    }
+  
+    delete(id) {
+      return http.delete(`/parts/${id}`);
+    }
+  
+    deleteAll() {
+      return http.delete(`/parts`);
+    }
+  
+    findByName(name) {
+      return http.get(`/parts?name=${name}`);
+    }
+
+    findByVehicle(vehicle) {
+      return http.get(`/parts?vehicle=${vehicle}`);
+    }
+}
+
+export default new PartDataService();
+```
+
+**Location**: `frontend/src/services/PartDataService.js`
+
+**Design Pattern**: Service Layer Pattern
+- Centralizes API calls
+- Provides reusable methods
+- Simplifies component logic
+- Uses Axios for HTTP communication
+
+## Technology Stack Details
+
+### Backend Dependencies
+
+Managed through Maven (`pom.xml`):
+
+<CardGroup cols={2}>
+  <Card title="Spring Boot Starter Data JPA" icon="database">
+    Version: Inherited from Spring Boot 2.4.3
+    Purpose: Database access and ORM
+  </Card>
+  
+  <Card title="Spring Boot Starter Web" icon="globe">
+    Version: Inherited from Spring Boot 2.4.3
+    Purpose: REST controller support
+  </Card>
+  
+  <Card title="PostgreSQL Driver" icon="elephant">
+    Version: Runtime managed
+    Purpose: Production database connectivity
+  </Card>
+  
+  <Card title="H2 Database" icon="flask">
+    Scope: Test only
+    Purpose: In-memory database for unit tests
+  </Card>
+  
+  <Card title="Springfox Swagger" icon="book">
+    Version: 2.9.2
+    Purpose: API documentation and UI
+  </Card>
+  
+  <Card title="JUnit" icon="check-circle">
+    Version: 5 (Jupiter)
+    Purpose: Unit testing framework
+  </Card>
+</CardGroup>
+
+**Source**: `backend/pom.xml`
+
+### Frontend Dependencies
+
+Managed through npm (`package.json`):
+
+```json
+{
+  "dependencies": {
+    "axios": "^0.21.1",
+    "core-js": "^3.6.5",
+    "vue": "^2.6.11",
+    "vue-router": "^3.5.1"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "~4.5.0",
+    "@vue/cli-plugin-eslint": "~4.5.0",
+    "@vue/cli-service": "~4.5.0",
+    "babel-eslint": "^10.1.0",
+    "eslint": "^6.7.2",
+    "eslint-plugin-vue": "^6.2.2",
+    "vue-template-compiler": "^2.6.11"
+  }
+}
+```
+
+**Location**: `frontend/package.json:10-24`
+
+## API Design
+
+The REST API follows RESTful principles and conventions.
+
+### API Versioning
+
+All endpoints are versioned under `/api/v1`:
+
+```java
+@RequestMapping("/api/v1")
+public class PartController {
+    // Endpoints
+}
+```
+
+This allows for future API evolution without breaking existing clients.
+
+### HTTP Method Mapping
+
+| Operation | HTTP Method | Endpoint Pattern | Example |
+|-----------|-------------|------------------|----------|
+| List All | GET | `/resource` | `GET /api/v1/parts` |
+| Get One | GET | `/resource/:id` | `GET /api/v1/parts/1` |
+| Create | POST | `/resource` | `POST /api/v1/parts` |
+| Update | PUT | `/resource/:id` | `PUT /api/v1/parts/1` |
+| Delete One | DELETE | `/resource/:id` | `DELETE /api/v1/parts/1` |
+| Delete All | DELETE | `/resource` | `DELETE /api/v1/parts` |
+| Search | GET | `/resource?param=value` | `GET /api/v1/parts?name=polia` |
+
+### Response Status Codes
+
+The API uses appropriate HTTP status codes:
+
+- **200 OK**: Successful GET, PUT operations
+- **201 CREATED**: Successful POST operation
+- **204 NO CONTENT**: Successful DELETE or empty result set
+- **404 NOT FOUND**: Resource not found
+- **500 INTERNAL SERVER ERROR**: Server-side error
+
+**Implementation Example**:
+
+```java
+@GetMapping("/parts")
+@ResponseStatus(HttpStatus.OK)
+public ResponseEntity<List<Part>> getAllParts(...) {
+    if (parts.isEmpty()) {
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+    return new ResponseEntity<List<Part>>(parts, HttpStatus.OK);
+}
+```
+
+**Location**: `backend/src/main/java/br/com/tarcnux/spring/jpa/postgresql/controller/PartController.java:43-71`
+
+## Testing Architecture
+
+The application includes comprehensive unit testing using JUnit 5 and Spring Boot Test.
+
+### Test Configuration
+
+```java
+@DataJpaTest
+public class JPAUnitTest {
+    @Autowired
+    private PartRepository partRepository;
+    
+    // Test methods
+}
+```
+
+**Features**:
+- **@DataJpaTest**: Configures in-memory H2 database
+- **Isolated Tests**: Each test runs in a transaction that rolls back
+- **Repository Testing**: Direct repository method validation
+
+**Location**: `backend/src/test/java/br/com/tarcnux/spring/jpa/postgresql/JPAUnitTest.java`
+
+### Test Database
+
+H2 in-memory database is used for testing:
+
+```xml
+<dependency>
+    <groupId>com.h2database</groupId>
+    <artifactId>h2</artifactId>
+    <scope>test</scope>
+</dependency>
+```
+
+**Location**: `backend/pom.xml:39-42`
+
+<Note>
+  Using H2 for tests ensures fast execution, isolation from production data, and consistent test environments across different machines.
+</Note>
+
+## Security Considerations
+
+### CORS Configuration
+
+Cross-Origin Resource Sharing is explicitly configured:
+
+```java
+@CrossOrigin(origins = "http://localhost:8081")
+```
+
+This restricts API access to the frontend application running on port 8081.
+
+### Database Configuration
+
+Database credentials should be configured in `application.properties`:
+
+```properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/partsCatalog
+spring.datasource.username=postgres
+spring.datasource.password=postgres
+```
+
+<Warning>
+  In production environments, use environment variables or secure configuration management for database credentials instead of hardcoding them.
+</Warning>
+
+## Deployment Architecture
+
+### Development Environment
+
+- **Backend**: `http://localhost:8080`
+- **Frontend**: `http://localhost:8081`
+- **Database**: PostgreSQL on `localhost:5432`
+- **API Docs**: `http://localhost:8080/swagger-ui.html`
+
+### Build Process
+
+**Backend**:
+```bash
+mvn clean install
+mvn spring-boot:run
+```
+
+**Frontend**:
+```bash
+npm install
+npm run serve
+```
+
+### Production Deployment
+
+For production deployment:
+
+1. **Backend**: Package as JAR using Maven
+   ```bash
+   mvn clean package
+   java -jar target/backend-0.0.1-SNAPSHOT.jar
+   ```
+
+2. **Frontend**: Build static assets
+   ```bash
+   npm run build
+   ```
+   Serve the `dist/` folder using a web server
+
+3. **Database**: Configure PostgreSQL with proper security and backup procedures
+
+## Design Patterns Summary
+
+<CardGroup cols={2}>
+  <Card title="MVC Pattern" icon="layer-group">
+    Separation of Model (entities), View (Vue components), and Controller (Spring controllers)
+  </Card>
+  
+  <Card title="Repository Pattern" icon="database">
+    Abstract data access through Spring Data JPA repositories
+  </Card>
+  
+  <Card title="Dependency Injection" icon="plug">
+    Spring framework manages component dependencies
+  </Card>
+  
+  <Card title="Service Layer" icon="cogs">
+    Frontend services encapsulate API communication logic
+  </Card>
+  
+  <Card title="Component-Based" icon="puzzle-piece">
+    Vue.js modular component architecture
+  </Card>
+  
+  <Card title="RESTful API" icon="network-wired">
+    Standard HTTP methods and resource-based URLs
+  </Card>
+</CardGroup>

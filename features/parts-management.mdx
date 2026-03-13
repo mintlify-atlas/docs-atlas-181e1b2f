@@ -1,0 +1,360 @@
+---
+title: Parts Management
+description: Complete guide to managing automotive parts in the catalog, including CRUD operations, search, filtering, and validation.
+---
+
+## Overview
+
+The Parts Management feature is the core functionality of the Parts Catalog application. It enables users to create, read, update, and delete automotive parts with detailed information including name, application vehicle, net weight, and gross weight.
+
+## Part Entity Model
+
+The Part entity is the central data model representing an automotive part in the system.
+
+```java Part.java
+@Entity
+@Table(name = "part")
+public class Part {
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
+
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "applicationVehicle")
+    private String applicationVehicle;
+
+    @Column(name = "netWeight")
+    private Double netWeight;
+
+    @Column(name = "grossWeight")
+    private Double grossWeight;
+
+    @ManyToMany
+    @JoinTable(
+        name = "part_vehicle",
+        joinColumns = @JoinColumn(name = "part_id"),
+        inverseJoinColumns = @JoinColumn(name = "vehicle_id")
+    )
+    private Set<Vehicle> vehicles = new HashSet<>();
+}
+```
+
+### Entity Attributes
+
+- **id**: Auto-generated unique identifier
+- **name**: Part name (required)
+- **applicationVehicle**: Description of vehicle application
+- **netWeight**: Net weight in kilograms (required, 2 decimal places)
+- **grossWeight**: Gross weight in kilograms (required, 2 decimal places)
+- **vehicles**: Set of related vehicles (many-to-many relationship)
+
+## CRUD Operations
+
+### Create a New Part
+
+Add a new part to the catalog with all required information.
+
+<Tabs>
+  <Tab title="Backend API">
+    ```java PartController.java:86
+    @PostMapping("/parts")
+    @ApiOperation(value = "Cadastra uma peça")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ResponseEntity<Part> createPart(@RequestBody Part part) {
+        try {
+            Part _part = partRepository.save(
+                new Part(
+                    part.getName(),
+                    part.getApplicationVehicle(),
+                    part.getNetWeight(),
+                    part.getGrossWeight()
+                )
+            );
+            return new ResponseEntity<>(_part, HttpStatus.CREATED);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    ```
+
+    **Endpoint**: `POST /api/v1/parts`
+
+    **Request Body**:
+    ```json
+    {
+        "name": "Polia",
+        "applicationVehicle": "Fusca",
+        "netWeight": 9.87,
+        "grossWeight": 10.98
+    }
+    ```
+  </Tab>
+  <Tab title="Frontend">
+    The frontend provides an intuitive form for adding new parts with validation:
+
+    - Name field (required)
+    - Application vehicle field (optional)
+    - Net weight field (required, 2 decimal places)
+    - Gross weight field (required, 2 decimal places)
+    - Weight validation: net weight must be less than or equal to gross weight
+  </Tab>
+</Tabs>
+
+### Retrieve Parts
+
+Retrieve parts from the catalog with support for filtering and sorting.
+
+<Tabs>
+  <Tab title="Get All Parts">
+    ```java PartController.java:43
+    @GetMapping("/parts")
+    @ApiOperation(value = "Exibe todas as peças em ordem alfabética")
+    @ResponseStatus(HttpStatus.OK)
+    public ResponseEntity<List<Part>> getAllParts(
+        @RequestParam(required = false) String name,
+        @RequestParam(required = false) String vehicle
+    ) {
+        List<Part> parts = new ArrayList<>();
+
+        if (name == null && vehicle == null) {
+            partRepository.findByOrderByNameAsc().forEach(parts::add);
+        } else if (vehicle == null) {
+            partRepository.findByNameContainingIgnoreCaseOrderByNameAsc(name)
+                .forEach(parts::add);
+        } else {
+            partRepository.findByApplicationVehicleContainingIgnoreCaseOrderByNameAsc(vehicle)
+                .forEach(parts::add);
+        }
+
+        if (parts.isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        }
+
+        return new ResponseEntity<>(parts, HttpStatus.OK);
+    }
+    ```
+
+    **Endpoint**: `GET /api/v1/parts`
+
+    **Query Parameters**:
+    - `name`: Filter by part name (case-insensitive)
+    - `vehicle`: Filter by application vehicle (case-insensitive)
+  </Tab>
+  <Tab title="Get Part by ID">
+    ```java PartController.java:73
+    @GetMapping("/parts/{id}")
+    @ApiOperation(value = "Exibe uma peça específica")
+    @ResponseStatus(HttpStatus.OK)
+    public ResponseEntity<Part> getPartById(@PathVariable("id") Long id) {
+        Optional<Part> partData = partRepository.findById(id);
+
+        if (partData.isPresent()) {
+            return new ResponseEntity<>(partData.get(), HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+    }
+    ```
+
+    **Endpoint**: `GET /api/v1/parts/{id}`
+  </Tab>
+</Tabs>
+
+### Update a Part
+
+Modify existing part information.
+
+```java PartController.java:100
+@PutMapping("/parts/{id}")
+@ApiOperation(value = "Atualiza uma peça específica")
+@ResponseStatus(HttpStatus.OK)
+public ResponseEntity<Part> updatePart(
+    @PathVariable("id") Long id,
+    @RequestBody Part part
+) {
+    Optional<Part> partData = partRepository.findById(id);
+
+    if (partData.isPresent()) {
+        Part _part = partData.get();
+        _part.setName(part.getName());
+        _part.setApplicationVehicle(part.getApplicationVehicle());
+        _part.setNetWeight(part.getNetWeight());
+        _part.setGrossWeight(part.getGrossWeight());
+        return new ResponseEntity<>(partRepository.save(_part), HttpStatus.OK);
+    } else {
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+}
+```
+
+**Endpoint**: `PUT /api/v1/parts/{id}`
+
+**Request Body**:
+```json
+{
+    "name": "Atualizado Polia",
+    "applicationVehicle": "Atualizado Fusca",
+    "netWeight": 9.87,
+    "grossWeight": 10.98
+}
+```
+
+### Delete Parts
+
+<Tabs>
+  <Tab title="Delete Single Part">
+    ```java PartController.java:119
+    @DeleteMapping("/parts/{id}")
+    @ApiOperation(value = "Exclui uma peça")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public ResponseEntity<HttpStatus> deletePart(@PathVariable("id") Long id) {
+        try {
+            partRepository.deleteById(id);
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    ```
+
+    **Endpoint**: `DELETE /api/v1/parts/{id}`
+  </Tab>
+  <Tab title="Delete All Parts">
+    ```java PartController.java:131
+    @DeleteMapping("/parts")
+    @ApiOperation(value = "Exclui todas as peças")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public ResponseEntity<HttpStatus> deleteAllParts() {
+        try {
+            partRepository.deleteAll();
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    ```
+
+    **Endpoint**: `DELETE /api/v1/parts`
+  </Tab>
+</Tabs>
+
+## Search and Filter
+
+The Parts Management system provides powerful search capabilities:
+
+### Search by Name
+
+Find parts by name using case-insensitive partial matching.
+
+**Endpoint**: `GET /api/v1/parts?name=polia`
+
+Returns all parts containing "polia" in the name (case-insensitive), sorted alphabetically.
+
+### Search by Vehicle Application
+
+Find parts by vehicle application using case-insensitive partial matching.
+
+**Endpoint**: `GET /api/v1/parts?vehicle=fusca`
+
+Returns all parts where the application vehicle contains "fusca" (case-insensitive), sorted alphabetically.
+
+### Alphabetical Sorting
+
+All parts listings are automatically sorted alphabetically by name in ascending order for easy navigation.
+
+## Validation Rules
+
+The application enforces the following validation rules:
+
+<AccordionGroup>
+  <Accordion title="Required Fields">
+    - **Name**: Must not be empty
+    - **Net Weight**: Must be provided
+    - **Gross Weight**: Must be provided
+  </Accordion>
+
+  <Accordion title="Weight Validation">
+    The net weight must be less than or equal to the gross weight. If this rule is violated:
+    - The part will not be created or updated
+    - An error message will be displayed to the user
+  </Accordion>
+
+  <Accordion title="Decimal Precision">
+    Weight values support 2 decimal places for accurate measurements.
+  </Accordion>
+
+  <Accordion title="Optional Fields">
+    - **Application Vehicle**: Optional descriptive field
+  </Accordion>
+</AccordionGroup>
+
+## User Interface Workflows
+
+### Main Parts List Screen
+
+- Displays all parts in alphabetical order by name
+- Search box for filtering by part name
+- Search box for filtering by vehicle application
+- "Add Part" button to create new parts
+- "Delete All" button to remove all parts from catalog
+- Each part row shows: name, application vehicle, net weight, gross weight
+- Click on a part to view details
+
+### Add New Part Screen
+
+1. Click "Add Part" button from the main list
+2. Fill in the form:
+   - Part name (required)
+   - Application vehicle (optional)
+   - Net weight (required, 2 decimals)
+   - Gross weight (required, 2 decimals)
+3. Click "Submit" to create the part
+4. Validation occurs before submission
+5. Success message displayed on creation
+6. Return to main list to see the new part
+
+### Part Details and Update Screen
+
+1. Click on a part from the main list
+2. View all part details
+3. Edit any field as needed
+4. Click "Update" to save changes
+5. Click "Delete" to remove the part
+6. View and manage related vehicles (see [Part-Vehicle Relationships](/features/part-vehicle-relationships))
+
+## API Response Codes
+
+| Code | Description |
+|------|-------------|
+| 200 OK | Successful GET or PUT request |
+| 201 Created | Part successfully created |
+| 204 No Content | Successful DELETE or no parts found |
+| 404 Not Found | Part with specified ID not found |
+| 500 Internal Server Error | Server error during operation |
+
+## Best Practices
+
+<Card title="Data Entry" icon="keyboard">
+  Always fill in descriptive names and accurate weight measurements. The application vehicle field helps identify which vehicles use the part.
+</Card>
+
+<Card title="Search Efficiency" icon="magnifying-glass">
+  Use the search filters to quickly locate parts. Both name and vehicle searches support partial matching.
+</Card>
+
+<Card title="Weight Accuracy" icon="scale-balanced">
+  Ensure net weight is always less than or equal to gross weight. This represents the actual product weight vs. shipping weight.
+</Card>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Vehicle Management" icon="car" href="/features/vehicles-management">
+    Learn how to manage vehicles in the catalog
+  </Card>
+  <Card title="Part-Vehicle Relationships" icon="link" href="/features/part-vehicle-relationships">
+    Understand how to link parts with compatible vehicles
+  </Card>
+</CardGroup>

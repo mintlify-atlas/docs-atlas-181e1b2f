@@ -1,0 +1,181 @@
+---
+title: Prerequisites
+description: Required software and tools to run the Parts Catalog application
+---
+
+Before you begin installing and running the Parts Catalog application, ensure your development environment meets the following requirements.
+
+## System Requirements
+
+<Steps>
+  <Step title="Java Development Kit (JDK) 11">
+    The backend application requires Java 11 to run.
+    
+    <CodeGroup>
+    ```bash Ubuntu/Debian
+    sudo apt update
+    sudo apt install openjdk-11-jdk
+    ```
+    
+    ```bash macOS (Homebrew)
+    brew install openjdk@11
+    ```
+    
+    ```bash Windows (Chocolatey)
+    choco install openjdk11
+    ```
+    </CodeGroup>
+    
+    Verify the installation:
+    ```bash
+    java -version
+    ```
+    
+    <Note>The application uses Spring Boot 2.4.3 which is compatible with Java 11.</Note>
+  </Step>
+  
+  <Step title="PostgreSQL Database">
+    PostgreSQL is required for the production database.
+    
+    <CodeGroup>
+    ```bash Ubuntu/Debian
+    sudo apt update
+    sudo apt install postgresql postgresql-contrib
+    ```
+    
+    ```bash macOS (Homebrew)
+    brew install postgresql
+    brew services start postgresql
+    ```
+    
+    ```bash Windows
+    # Download installer from postgresql.org
+    # Or use Chocolatey:
+    choco install postgresql
+    ```
+    </CodeGroup>
+    
+    Verify the installation:
+    ```bash
+    psql --version
+    ```
+    
+    <Tip>We recommend installing [pgAdmin](https://www.pgadmin.org/) for easier PostgreSQL database management through a graphical interface.</Tip>
+  </Step>
+  
+  <Step title="Node.js and NPM">
+    The frontend Vue.js application requires Node.js and NPM (Node Package Manager).
+    
+    <CodeGroup>
+    ```bash Ubuntu/Debian
+    curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    ```
+    
+    ```bash macOS (Homebrew)
+    brew install node
+    ```
+    
+    ```bash Windows (Chocolatey)
+    choco install nodejs
+    ```
+    </CodeGroup>
+    
+    Verify the installation:
+    ```bash
+    node --version
+    npm --version
+    ```
+    
+    <Note>The application is built with Vue.js 2.6.11 and requires Node.js LTS version.</Note>
+  </Step>
+  
+  <Step title="Git">
+    Git is required to clone the repository.
+    
+    <CodeGroup>
+    ```bash Ubuntu/Debian
+    sudo apt update
+    sudo apt install git
+    ```
+    
+    ```bash macOS
+    # Git comes pre-installed with Xcode Command Line Tools
+    xcode-select --install
+    ```
+    
+    ```bash Windows (Chocolatey)
+    choco install git
+    ```
+    </CodeGroup>
+    
+    Verify the installation:
+    ```bash
+    git --version
+    ```
+  </Step>
+  
+  <Step title="Maven (Optional)">
+    Maven is used for backend dependency management. It's included in the Spring Boot Maven Plugin, but having it installed globally is recommended.
+    
+    <CodeGroup>
+    ```bash Ubuntu/Debian
+    sudo apt update
+    sudo apt install maven
+    ```
+    
+    ```bash macOS (Homebrew)
+    brew install maven
+    ```
+    
+    ```bash Windows (Chocolatey)
+    choco install maven
+    ```
+    </CodeGroup>
+    
+    Verify the installation:
+    ```bash
+    mvn --version
+    ```
+    
+    <Note>You can use the Maven wrapper (`./mvnw`) included in the project if you don't want to install Maven globally.</Note>
+  </Step>
+</Steps>
+
+## Recommended Development Tools
+
+While not strictly required, these tools will enhance your development experience:
+
+### Backend Development
+- **Spring Tool Suite 4 (STS)** - Recommended IDE for Spring Boot development
+- **IntelliJ IDEA** - Alternative Java IDE with excellent Spring support
+- **Eclipse** - Free and open-source Java IDE
+
+### Frontend Development
+- **Visual Studio Code** - Recommended lightweight code editor
+- **Vue.js DevTools** - Browser extension for debugging Vue applications
+
+### Database Management
+- **pgAdmin** - PostgreSQL administration and management tool
+- **DBeaver** - Universal database tool that supports PostgreSQL
+
+## System Requirements Summary
+
+<CardGroup cols={2}>
+  <Card title="Backend Requirements" icon="server">
+    - Java 11
+    - PostgreSQL 12+
+    - Maven 3.6+ (optional)
+  </Card>
+  
+  <Card title="Frontend Requirements" icon="browser">
+    - Node.js LTS
+    - NPM 6+
+  </Card>
+</CardGroup>
+
+<Warning>Make sure all required software is properly installed and configured before proceeding to the installation steps.</Warning>
+
+## Next Steps
+
+Once you have all prerequisites installed, you're ready to proceed with the [installation](/getting-started/installation).

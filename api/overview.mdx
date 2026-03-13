@@ -1,0 +1,177 @@
+---
+title: API Overview
+description: Complete reference for the Parts Catalog REST API including base URL, authentication, response formats, and error codes
+---
+
+The Parts Catalog API is a RESTful web service for managing automotive parts catalogs and vehicle relationships. Built with Spring Boot, it provides comprehensive CRUD operations for parts, vehicles, and their many-to-many relationships.
+
+## Base URL
+
+All API endpoints are prefixed with:
+
+```
+http://localhost:8080/api/v1
+```
+
+For production deployments, replace `localhost:8080` with your deployed server address.
+
+## Authentication
+
+The current version of the API does not require authentication. All endpoints are publicly accessible.
+
+<Warning>
+  In production environments, it is strongly recommended to implement authentication and authorization mechanisms to protect your data.
+</Warning>
+
+## Response Format
+
+All API responses are returned in JSON format with the appropriate HTTP status code.
+
+### Success Response
+
+Successful requests return the requested resource(s) with the appropriate status code:
+
+```json
+{
+  "id": 1,
+  "name": "Polia",
+  "applicationVehicle": "Fusca",
+  "netWeight": 9.87,
+  "grossWeight": 10.98,
+  "vehicles": []
+}
+```
+
+### Empty Response
+
+When no resources are found, the API returns HTTP `204 No Content` with an empty response body.
+
+## HTTP Status Codes
+
+The API uses standard HTTP status codes to indicate the success or failure of requests:
+
+| Status Code | Description | Usage |
+|-------------|-------------|-------|
+| `200 OK` | Success | Successful GET, PUT operations |
+| `201 Created` | Resource created | Successful POST operations |
+| `204 No Content` | Success with no content | Successful DELETE operations, empty GET results |
+| `404 Not Found` | Resource not found | When requested resource ID doesn't exist |
+| `500 Internal Server Error` | Server error | Unexpected server-side errors |
+
+## Error Handling
+
+### 404 Not Found
+
+Returned when a requested resource doesn't exist:
+
+```bash
+GET /api/v1/parts/999
+```
+
+Response:
+```
+HTTP/1.1 404 Not Found
+```
+
+### 500 Internal Server Error
+
+Returned when an unexpected error occurs on the server:
+
+```
+HTTP/1.1 500 Internal Server Error
+```
+
+## CORS Configuration
+
+The API is configured to accept cross-origin requests from:
+
+```
+http://localhost:8081
+```
+
+For production deployments, update the CORS configuration to match your frontend domain.
+
+## API Resources
+
+The API provides three main resource types:
+
+<CardGroup cols={3}>
+  <Card title="Parts" icon="gear" href="/api/parts">
+    Manage automotive parts with details like name, application vehicle, and weight specifications
+  </Card>
+  <Card title="Vehicles" icon="car" href="/api/vehicles">
+    Manage vehicle records and their relationships with parts
+  </Card>
+  <Card title="Relationships" icon="link" href="/api/relationships">
+    Create and manage many-to-many relationships between parts and vehicles
+  </Card>
+</CardGroup>
+
+## Common Query Parameters
+
+Several endpoints support filtering via query parameters:
+
+<ParamField query="name" type="string">
+  Filter resources by name (case-insensitive, partial match)
+</ParamField>
+
+<ParamField query="vehicle" type="string">
+  Filter parts by application vehicle name (case-insensitive, partial match)
+</ParamField>
+
+## Data Models
+
+### Part Object
+
+```json
+{
+  "id": 1,
+  "name": "Polia",
+  "applicationVehicle": "Fusca",
+  "netWeight": 9.87,
+  "grossWeight": 10.98,
+  "vehicles": [
+    {
+      "id": 1,
+      "name": "Fusca 1300"
+    }
+  ]
+}
+```
+
+### Vehicle Object
+
+```json
+{
+  "id": 1,
+  "name": "Fusca 1300"
+}
+```
+
+<Note>
+  The `vehicles` array in the Part object contains the list of vehicles associated with that part. The Vehicle object does not include the `parts` array to prevent circular references in JSON responses.
+</Note>
+
+## Swagger Documentation
+
+Interactive API documentation is available via Swagger UI at:
+
+```
+http://localhost:8080/swagger-ui.html
+```
+
+This provides an interactive interface to test all API endpoints.
+
+## Postman Collection
+
+A Postman collection is available for testing the API. Click the button below to import:
+
+[![Run in Postman](https://run.pstmn.io/button.svg)](https://app.getpostman.com/run-collection/6da14daca04e6efcaf2b)
+
+## Rate Limiting
+
+The current version does not implement rate limiting. Consider implementing rate limiting for production deployments to prevent abuse.
+
+## Versioning
+
+The API is currently at version 1 (v1), indicated by the `/api/v1` prefix in all endpoints. Future versions will use incremented version numbers in the URL path.

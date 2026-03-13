@@ -1,0 +1,246 @@
+---
+title: 'Testing'
+description: 'Learn how to run and write tests for the Parts Catalog application'
+---
+
+## Overview
+
+The Parts Catalog backend uses **JUnit 5** for unit testing with Spring Boot's testing framework. Tests are configured to run against an in-memory **H2 database** to ensure fast, isolated test execution without affecting the production PostgreSQL database.
+
+## Test Structure
+
+All test files are located in `backend/src/test/java/br/com/tarcnux/spring/jpa/postgresql/`:
+
+- **BackendApplicationTests.java** - Basic Spring Boot context loading test
+- **JPAUnitTest.java** - Repository layer tests using `@DataJpaTest`
+- **PartControllerTest.java** - Controller layer tests using `@WebMvcTest`
+
+## Testing Technologies
+
+### JUnit 5
+The testing framework used throughout the project. JUnit 5 provides annotations like `@Test`, `@BeforeEach`, and improved assertion methods.
+
+### Spring Boot Test
+Provides testing support with annotations:
+- `@SpringBootTest` - Loads full application context
+- `@DataJpaTest` - Configures JPA repositories with H2 database
+- `@WebMvcTest` - Tests Spring MVC controllers with MockMvc
+
+### H2 Database
+An in-memory database used for testing. It automatically replaces PostgreSQL during test execution, providing:
+- Fast test execution
+- No external dependencies
+- Clean state for each test run
+- Automatic schema creation from JPA entities
+
+### AssertJ & Mockito
+- **AssertJ** - Fluent assertions for more readable test code
+- **Mockito** - Mocking framework for isolating units under test
+
+## Running Tests
+
+### Using Spring Tool Suite (STS)
+
+1. Add JUnit to the Build Path (first time only):
+   ```
+   Right-click on backend project → Build Path → Add Libraries
+   → JUnit → Next → Choose JUnit 5 → Finish
+   ```
+
+2. Run all tests:
+   ```
+   Right-click on src/test/java → Run As → JUnit Test
+   ```
+
+3. Run a specific test class:
+   ```
+   Right-click on test file → Run As → JUnit Test
+   ```
+
+### Using Maven Command Line
+
+Run all tests:
+```bash
+cd backend
+mvn test
+```
+
+Run a specific test class:
+```bash
+mvn test -Dtest=JPAUnitTest
+```
+
+Run tests with verbose output:
+```bash
+mvn test -X
+```
+
+## Test Examples
+
+### Repository Layer Tests
+
+The `JPAUnitTest` class tests the data access layer using `@DataJpaTest`:
+
+```java
+@RunWith(SpringRunner.class)
+@DataJpaTest
+public class JPAUnitTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
+
+    @Autowired
+    private PartRepository repository;
+    
+    @Test
+    public void should_find_no_parts_if_repository_is_empty() {
+        Iterable<Part> parts = repository.findAll();
+        
+        assertThat(parts).isEmpty();
+    }
+    
+    @Test
+    public void should_store_a_part() {
+        Part part = repository.save(new Part("Impulsor de Partida", "Palio", 5.67, 6.54));
+        
+        assertThat(part).hasFieldOrPropertyWithValue("name", "Impulsor de Partida");
+        assertThat(part).hasFieldOrPropertyWithValue("applicationVehicle", "Palio");
+        assertThat(part).hasFieldOrPropertyWithValue("netWeight", 5.67);
+        assertThat(part).hasFieldOrPropertyWithValue("grossWeight", 6.54);
+    }
+}
+```
+
+**Key features:**
+- `@DataJpaTest` automatically configures H2 database
+- `TestEntityManager` provides JPA entity operations
+- Tests verify CRUD operations, queries, and data persistence
+
+### Controller Layer Tests
+
+The `PartControllerTest` class tests REST endpoints using `@WebMvcTest`:
+
+```java
+@WebMvcTest(PartController.class)
+class PartControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private PartRepository partRepository;
+
+    @Test
+    void should_prioritize_vehicle_filter_when_name_and_vehicle_are_informed() throws Exception {
+        Part part1 = new Part("Polia Rígida", "Marea", 4.56, 5.43);
+        Part part2 = new Part("Polia Roda Livre", "Marea", 9.87, 10.98);
+
+        when(partRepository.findByApplicationVehicleContainingIgnoreCaseOrderByNameAsc("Mar"))
+                .thenReturn(Arrays.asList(part1, part2));
+
+        mockMvc.perform(get("/api/v1/parts").param("name", "Polia").param("vehicle", "Mar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(2)))
+                .andExpect(jsonPath("$[0].applicationVehicle").value("Marea"))
+                .andExpect(jsonPath("$[1].applicationVehicle").value("Marea"));
+
+        verify(partRepository).findByApplicationVehicleContainingIgnoreCaseOrderByNameAsc("Mar");
+        verify(partRepository, never()).findByNameContainingIgnoreCaseOrderByNameAsc(anyString());
+    }
+}
+```
+
+**Key features:**
+- `MockMvc` simulates HTTP requests
+- `@MockBean` creates mock repositories
+- Tests verify controller logic, query parameters, and JSON responses
+
+## Writing New Tests
+
+### Testing Repository Methods
+
+Use `@DataJpaTest` for repository tests:
+
+```java
+@Test
+public void should_find_part_by_name_containing_string() {
+    Part part1 = new Part("Polia Rígida", "Celta", 4.56, 5.43);
+    entityManager.persist(part1);
+    
+    Part part2 = new Part("Polia Roda Livre", "Marea", 9.87, 10.98);
+    entityManager.persist(part2);
+    
+    Iterable<Part> parts = repository.findByNameContainingIgnoreCaseOrderByNameAsc("Polia");
+    assertThat(parts).hasSize(2).contains(part1, part2);
+}
+```
+
+### Testing Controllers
+
+Use `@WebMvcTest` for controller tests:
+
+```java
+@Test
+void should_return_parts_list() throws Exception {
+    List<Part> parts = Arrays.asList(
+        new Part("Part 1", "Vehicle 1", 1.0, 2.0),
+        new Part("Part 2", "Vehicle 2", 3.0, 4.0)
+    );
+    
+    when(partRepository.findAll()).thenReturn(parts);
+    
+    mockMvc.perform(get("/api/v1/parts"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$").isArray())
+        .andExpect(jsonPath("$", hasSize(2)));
+}
+```
+
+## Test Coverage
+
+The current test suite covers:
+
+- ✅ Empty repository validation
+- ✅ Part creation and storage
+- ✅ Finding all parts
+- ✅ Finding parts by ID
+- ✅ Finding parts by name (with keyword search)
+- ✅ Finding parts by vehicle (with keyword search)
+- ✅ Updating parts
+- ✅ Deleting parts by ID
+- ✅ Deleting all parts
+- ✅ Controller query parameter handling
+
+<Note>
+The H2 database is automatically configured when using `@DataJpaTest`. No additional configuration is needed in `application.properties` for tests.
+</Note>
+
+## Best Practices
+
+1. **Use descriptive test method names** - Follow the pattern `should_<expected_behavior>_when_<condition>`
+2. **Test one behavior per test** - Keep tests focused and isolated
+3. **Use TestEntityManager** for test data setup in repository tests
+4. **Mock external dependencies** in controller tests
+5. **Verify interactions** using Mockito's `verify()` method
+6. **Clean test data** - `@DataJpaTest` provides transactional rollback automatically
+
+## Dependencies
+
+Testing dependencies are configured in `backend/pom.xml`:
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-test</artifactId>
+    <scope>test</scope>
+</dependency>
+<dependency>
+    <groupId>com.h2database</groupId>
+    <artifactId>h2</artifactId>
+    <scope>test</scope>
+</dependency>
+```
+
+<Warning>
+Make sure JUnit 5 is added to your IDE's Build Path. Without it, test classes may show compilation errors even though Maven can still run the tests.
+</Warning>
