@@ -1,0 +1,90 @@
+{
+  "projectType": "saas",
+  "projectName": "Parts Catalog",
+  "projectDescription": "Full-stack web application for managing automotive parts catalogs with vehicle relationships",
+  "theme": "maple",
+  "primaryColor": "#df7e38",
+  "lightColor": "#667e93",
+  "darkColor": "#ced0d3",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "introduction",
+              "features",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Getting Started",
+            "pages": [
+              "getting-started/prerequisites",
+              "getting-started/installation",
+              "getting-started/database-setup",
+              "getting-started/configuration"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/parts-management",
+              "features/vehicles-management",
+              "features/part-vehicle-relationships"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/testing",
+              "development/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/overview",
+              "api/parts",
+              "api/vehicles",
+              "api/relationships"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Complete CRUD operations for parts and vehicles",
+    "Many-to-many relationship management between parts and vehicles",
+    "Advanced search and filtering capabilities",
+    "Vue.js frontend with Bootstrap styling",
+    "RESTful API with Swagger documentation",
+    "PostgreSQL database with JPA/Hibernate ORM",
+    "Comprehensive JUnit test coverage with H2 in-memory database"
+  ],
+  "publicApiSurface": [
+    "GET /api/v1/parts - List all parts with optional filtering",
+    "POST /api/v1/parts - Create a new part",
+    "GET /api/v1/parts/{id} - Get part by ID",
+    "PUT /api/v1/parts/{id} - Update part",
+    "DELETE /api/v1/parts/{id} - Delete part",
+    "DELETE /api/v1/parts - Delete all parts",
+    "GET /api/v1/vehicles - List all vehicles",
+    "POST /api/v1/vehicles - Create a new vehicle",
+    "GET /api/v1/vehicles/{id} - Get vehicle by ID",
+    "PUT /api/v1/vehicles/{id} - Update vehicle",
+    "DELETE /api/v1/vehicles/{id} - Delete vehicle",
+    "DELETE /api/v1/vehicles - Delete all vehicles",
+    "GET /api/v1/parts/{partId}/vehicles - List vehicles for a part",
+    "POST /api/v1/parts/{partId}/vehicles/{vehicleId} - Link vehicle to part",
+    "DELETE /api/v1/parts/{partId}/vehicles/{vehicleId} - Unlink vehicle from part"
+  ]
+}
